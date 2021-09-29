@@ -1,0 +1,24 @@
+{
+	"name": "slash-command-lib",
+	"version": "1.0.0",
+	"main": "dist/index.js",
+	"license": "MIT",
+  "scripts": {
+    "prebuild": "rimraf ./dist",
+    "build": "tsc"
+  },
+	"devDependencies": {
+		"@types/node": "^16.4.13",
+		"@types/pino": "^6.3.11",
+		"@types/require-all": "^3.0.3",
+		"prettier": "^2.3.2",
+		"slash-commands": "^1.5.0",
+		"typescript": "^4.3.5",
+		"rimraf": "^3.0.2"
+	},
+	"dependencies": {
+		"discord.js": "^13.0.0",
+		"pino": "^6.13.0",
+		"require-all": "^3.0.0"
+	}
+}
