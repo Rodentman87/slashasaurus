@@ -2,6 +2,7 @@ import {
   ApplicationCommand,
   ApplicationCommandData,
   ApplicationCommandManager,
+  AutocompleteInteraction,
   Awaited,
   ButtonInteraction,
   ChatInputApplicationCommandData,
@@ -21,7 +22,7 @@ import path from 'path';
 import { Logger } from 'pino';
 import requireAll from 'require-all';
 import { ContextMenuBase } from './ContextMenuBase';
-import { SlashCommandBase } from './SlashCommandBase';
+import { SlashCommandBase, SlashCommand } from './SlashCommandBase';
 import { partitionCommands } from './utils';
 
 interface IntercationsClientEvents extends ClientEvents {
@@ -29,6 +30,7 @@ interface IntercationsClientEvents extends ClientEvents {
   buttonPressed: [interaction: ButtonInteraction];
   selectChanged: [interaction: SelectMenuInteraction];
   contextMenuRun: [interaction: ContextMenuInteraction];
+  autocomplete: [interaction: AutocompleteInteraction];
 }
 
 export declare interface InteractionsClient extends Client {
@@ -56,7 +58,7 @@ export declare interface InteractionsClient extends Client {
 }
 
 export class InteractionsClient extends Client {
-  commandMap = new Map<string, SlashCommandBase>();
+  commandMap = new Map<string, SlashCommandBase<any>>();
   userContextMenuMap = new Map<string, ContextMenuBase>();
   messageContextMenuMap = new Map<string, ContextMenuBase>();
   logger: Logger;
@@ -121,21 +123,8 @@ export class InteractionsClient extends Client {
         manager.delete(oldCommand);
       });
       output.same.forEach(({ oldCommand, newCommand }) => {
-        let shouldBeUpdated = false;
-        if (
-          newCommand.type === 'CHAT_INPUT' &&
-          oldCommand.description !== newCommand.description
-        ) {
-          shouldBeUpdated = true;
-        }
-        if (
-          newCommand.type === 'CHAT_INPUT' &&
-          JSON.stringify(oldCommand.options) !==
-            JSON.stringify(newCommand.options)
-        ) {
-          shouldBeUpdated = true;
-        }
-        if (shouldBeUpdated) manager.edit(oldCommand, newCommand);
+        if (!oldCommand.equals(newCommand))
+          manager.edit(oldCommand, newCommand);
       });
     }
     this.logger.info('Finished registering commands');
@@ -216,7 +205,10 @@ export class InteractionsClient extends Client {
         this.logger.debug(commandFile);
         if (commandFile.command) {
           // This is a basic command
-          const command = commandFile.command as SlashCommandBase;
+          const command = commandFile.command as
+            | SlashCommandBase<any>
+            | SlashCommand<any>;
+          // @ts-ignore
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(command.commandInfo);
           this.logger.info(
@@ -264,6 +256,9 @@ export class InteractionsClient extends Client {
     } else if (interaction.isContextMenu()) {
       this.handleContextMenu(interaction);
       this.emit('contextMenuRun', interaction);
+    } else if (interaction.isAutocomplete()) {
+      this.handleAutocomplet(interaction);
+      this.emit('autocomplete', interaction);
     }
   }
 
@@ -279,7 +274,47 @@ export class InteractionsClient extends Client {
       });
     } else {
       this.logger.info(`Running command ${commandName}`);
-      command.run(interaction, this);
+      const data = interaction.options.data;
+      const optionsObj: Record<string, any> = {};
+      data.forEach((option) => {
+        optionsObj[option.name] =
+          option.channel ??
+          option.member ??
+          option.message ??
+          option.role ??
+          option.user ??
+          option.value;
+      });
+      // @ts-ignore
+      command.run(interaction, this, optionsObj as any);
+    }
+  }
+
+  async handleAutocomplet(interaction: AutocompleteInteraction) {
+    const commandName = interaction.commandName;
+    const command = this.commandMap.get(commandName);
+    if (!command) {
+      interaction.respond([]);
+    } else {
+      const data = interaction.options.data;
+      const optionsObj: Record<string, any> = {};
+      data.forEach((option) => {
+        optionsObj[option.name] =
+          option.channel ??
+          option.member ??
+          option.message ??
+          option.role ??
+          option.user ??
+          option.value;
+      });
+      const focused = interaction.options.getFocused(true);
+      command.autocomplete(
+        interaction,
+        focused.name,
+        focused.value,
+        this,
+        optionsObj as any
+      );
     }
   }
 
