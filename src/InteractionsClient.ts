@@ -207,7 +207,7 @@ export class InteractionsClient extends Client {
           // This is a basic command
           const command = commandFile.command as
             | SlashCommandBase<any>
-            | SlashCommand<any>;
+            | SlashCommand<any, any>;
           // @ts-ignore
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(command.commandInfo);

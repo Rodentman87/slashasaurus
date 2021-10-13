@@ -14,16 +14,16 @@ export declare abstract class SlashCommandBase<T extends Array<ApplicationComman
     abstract run(interaction: CommandInteraction, client: InteractionsClient, options: CommandOptionsObject<T>): void;
     abstract autocomplete(interaction: AutocompleteInteraction, focusedName: MapOptionsToAutocompleteNames<T>, focusedValue: string | number, client: InteractionsClient, options: CommandOptionsObject<T>): void;
 }
-declare type HandlersType<T extends ReadonlyArray<ApplicationCommandOptionData>> = MapOptionsToAutocompleteNames<T> extends never ? {
-    run: (interaction: CommandInteraction, client: InteractionsClient, options: ReadonlyCommandOptionsObject<T>) => void;
-} : HandlersWithAutoComplete<T>;
-declare type HandlersWithAutoComplete<T extends ReadonlyArray<ApplicationCommandOptionData>> = {
-    run: (interaction: CommandInteraction, client: InteractionsClient, options: ReadonlyCommandOptionsObject<T>) => void;
-    autocomplete: (interaction: AutocompleteInteraction, focusedName: MapOptionsToAutocompleteNames<T>, focusedValue: string | number, client: InteractionsClient, options: Partial<ReadonlyCommandOptionsObject<T>>) => void;
+declare type HandlersType<T extends ReadonlyArray<ApplicationCommandOptionData>, U extends InteractionsClient> = MapOptionsToAutocompleteNames<T> extends never ? {
+    run: (interaction: CommandInteraction, client: U, options: ReadonlyCommandOptionsObject<T>) => void;
+} : HandlersWithAutoComplete<T, U>;
+declare type HandlersWithAutoComplete<T extends ReadonlyArray<ApplicationCommandOptionData>, U extends InteractionsClient> = {
+    run: (interaction: CommandInteraction, client: U, options: ReadonlyCommandOptionsObject<T>) => void;
+    autocomplete: (interaction: AutocompleteInteraction, focusedName: MapOptionsToAutocompleteNames<T>, focusedValue: string | number, client: U, options: Partial<ReadonlyCommandOptionsObject<T>>) => void;
 };
-export declare class SlashCommand<T extends ReadonlyArray<ApplicationCommandOptionData>> {
+export declare class SlashCommand<T extends ReadonlyArray<ApplicationCommandOptionData>, U extends InteractionsClient> {
     commandInfo: ChatCommandOptions<T>;
-    constructor(commandInfo: Omit<ChatCommandOptions<T>, 'type'>, handlers: HandlersType<T>);
+    constructor(client: U, commandInfo: Omit<ChatCommandOptions<T>, 'type'>, handlers: HandlersType<T, U>);
     run(interaction: CommandInteraction, client: InteractionsClient, options: ReadonlyCommandOptionsObject<T>): void;
     autocomplete(interaction: AutocompleteInteraction, focusedName: MapOptionsToAutocompleteNames<T>, focusedValue: string | number, client: InteractionsClient, options: Partial<ReadonlyCommandOptionsObject<T>>): void;
 }

@@ -11,7 +11,7 @@ function handlersHasAutocomplete(handlers) {
     return 'autocomplete' in handlers;
 }
 class SlashCommand {
-    constructor(commandInfo, handlers) {
+    constructor(client, commandInfo, handlers) {
         const info = commandInfo;
         info.type = 'CHAT_INPUT';
         this.commandInfo = info;

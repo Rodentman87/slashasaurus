@@ -41,48 +41,55 @@ export abstract class SlashCommandBase<
   ): void;
 }
 
-type HandlersType<T extends ReadonlyArray<ApplicationCommandOptionData>> =
-  MapOptionsToAutocompleteNames<T> extends never
-    ? {
-        run: (
-          interaction: CommandInteraction,
-          client: InteractionsClient,
-          options: ReadonlyCommandOptionsObject<T>
-        ) => void;
-      }
-    : HandlersWithAutoComplete<T>;
+type HandlersType<
+  T extends ReadonlyArray<ApplicationCommandOptionData>,
+  U extends InteractionsClient
+> = MapOptionsToAutocompleteNames<T> extends never
+  ? {
+      run: (
+        interaction: CommandInteraction,
+        client: U,
+        options: ReadonlyCommandOptionsObject<T>
+      ) => void;
+    }
+  : HandlersWithAutoComplete<T, U>;
 
 type HandlersWithAutoComplete<
-  T extends ReadonlyArray<ApplicationCommandOptionData>
+  T extends ReadonlyArray<ApplicationCommandOptionData>,
+  U extends InteractionsClient
 > = {
   run: (
     interaction: CommandInteraction,
-    client: InteractionsClient,
+    client: U,
     options: ReadonlyCommandOptionsObject<T>
   ) => void;
   autocomplete: (
     interaction: AutocompleteInteraction,
     focusedName: MapOptionsToAutocompleteNames<T>,
     focusedValue: string | number,
-    client: InteractionsClient,
+    client: U,
     options: Partial<ReadonlyCommandOptionsObject<T>>
   ) => void;
 };
 
 function handlersHasAutocomplete<
-  T extends ReadonlyArray<ApplicationCommandOptionData>
->(handlers: HandlersType<T>): handlers is HandlersWithAutoComplete<T> {
+  T extends ReadonlyArray<ApplicationCommandOptionData>,
+  U extends InteractionsClient
+>(handlers: HandlersType<T, U>): handlers is HandlersWithAutoComplete<T, U> {
   return 'autocomplete' in handlers;
 }
 
 export class SlashCommand<
-  T extends ReadonlyArray<ApplicationCommandOptionData>
+  T extends ReadonlyArray<ApplicationCommandOptionData>,
+  U extends InteractionsClient
 > {
   commandInfo: ChatCommandOptions<T>;
 
   constructor(
+    // @ts-expect-error
+    client: U,
     commandInfo: Omit<ChatCommandOptions<T>, 'type'>,
-    handlers: HandlersType<T>
+    handlers: HandlersType<T, U>
   ) {
     const info: ChatCommandOptions<T> = commandInfo as ChatCommandOptions<T>;
     info.type = 'CHAT_INPUT';
