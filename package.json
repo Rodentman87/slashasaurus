@@ -1,24 +1,24 @@
 {
-	"name": "slash-command-lib",
-	"version": "0.0.1",
-	"main": "dist/index.js",
-	"license": "MIT",
-	"scripts": {
-		"prebuild": "rimraf ./dist",
-		"build": "tsc"
-	},
-	"devDependencies": {
-		"@types/node": "^16.4.13",
-		"@types/pino": "^6.3.11",
-		"@types/require-all": "^3.0.3",
-		"prettier": "^2.3.2",
-		"rimraf": "^3.0.2",
-		"slash-commands": "^1.5.0",
-		"typescript": "^4.3.5"
-	},
-	"dependencies": {
-		"discord.js": "https://github.com/OfficialSirH/discord.js.git",
-		"pino": "^6.13.0",
-		"require-all": "^3.0.0"
-	}
+  "name": "slash-command-lib",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "rimraf ./dist",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^16.4.13",
+    "@types/pino": "^6.3.11",
+    "@types/require-all": "^3.0.3",
+    "prettier": "^2.3.2",
+    "rimraf": "^3.0.2",
+    "slash-commands": "^1.5.0",
+    "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "discord.js": "13.3.0",
+    "pino": "^6.13.0",
+    "require-all": "^3.0.0"
+  }
 }

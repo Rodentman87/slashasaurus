@@ -127,7 +127,7 @@ export class SlashCommand<
     interaction.respond([
       {
         name: "This interaction isn't implemented yet",
-        value: 'erro',
+        value: 'error',
       },
     ]);
   }
