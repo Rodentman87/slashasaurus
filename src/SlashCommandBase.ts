@@ -28,7 +28,7 @@ export abstract class SlashCommandBase<
 
   abstract run(
     interaction: CommandInteraction,
-    client: InteractionsClient,
+    client: InteractionsClient<any, any>,
     options: CommandOptionsObject<T>
   ): void;
 
@@ -36,14 +36,14 @@ export abstract class SlashCommandBase<
     interaction: AutocompleteInteraction,
     focusedName: MapOptionsToAutocompleteNames<T>,
     focusedValue: string | number,
-    client: InteractionsClient,
+    client: InteractionsClient<any, any>,
     options: CommandOptionsObject<T>
   ): void;
 }
 
 type HandlersType<
   T extends ReadonlyArray<ApplicationCommandOptionData>,
-  U extends InteractionsClient
+  U extends InteractionsClient<any, any>
 > = MapOptionsToAutocompleteNames<T> extends never
   ? {
       run: (
@@ -56,7 +56,7 @@ type HandlersType<
 
 type HandlersWithAutoComplete<
   T extends ReadonlyArray<ApplicationCommandOptionData>,
-  U extends InteractionsClient
+  U extends InteractionsClient<any, any>
 > = {
   run: (
     interaction: CommandInteraction,
@@ -74,13 +74,13 @@ type HandlersWithAutoComplete<
 
 function handlersHasAutocomplete<
   T extends ReadonlyArray<ApplicationCommandOptionData>,
-  U extends InteractionsClient
+  U extends InteractionsClient<any, any>
 >(handlers: HandlersType<T, U>): handlers is HandlersWithAutoComplete<T, U> {
   return 'autocomplete' in handlers;
 }
 
 export class SlashCommand<
-  U extends InteractionsClient,
+  U extends InteractionsClient<any, any>,
   T extends ReadonlyArray<ApplicationCommandOptionData>
 > {
   commandInfo: ChatCommandOptions<T>;
@@ -105,7 +105,7 @@ export class SlashCommand<
 
   run(
     interaction: CommandInteraction,
-    _client: InteractionsClient,
+    _client: U,
     _options: ReadonlyCommandOptionsObject<T>
   ) {
     interaction.reply({
@@ -118,7 +118,7 @@ export class SlashCommand<
     interaction: AutocompleteInteraction,
     _focusedName: MapOptionsToAutocompleteNames<T>,
     _focusedValue: string | number,
-    _client: InteractionsClient,
+    _client: U,
     _options: Partial<ReadonlyCommandOptionsObject<T>>
   ) {
     interaction.respond([

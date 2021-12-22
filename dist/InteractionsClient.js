@@ -18,8 +18,10 @@ class InteractionsClient extends discord_js_1.Client {
         this.devServerId = options.devServerId;
         this.onBeforeCommand = options.onBeforeCommand;
         this.onAfterCommand = options.onAfterCommand;
+        this.onCommandFailed = options.onCommandFailed;
         this.onBeforeAutocomplete = options.onBeforeAutocomplete;
         this.onAfterAutocomplete = options.onAfterAutocomplete;
+        this.onAutocompleteFailed = options.onAutocompleteFailed;
         this.on('interactionCreate', this.handleInteractionEvent);
     }
     async registerCommandsFrom(folderPath) {
@@ -161,12 +163,23 @@ class InteractionsClient extends discord_js_1.Client {
                 optionsObj[option.name] =
                     (_e = (_d = (_c = (_b = (_a = option.channel) !== null && _a !== void 0 ? _a : option.member) !== null && _b !== void 0 ? _b : option.message) !== null && _c !== void 0 ? _c : option.role) !== null && _d !== void 0 ? _d : option.user) !== null && _e !== void 0 ? _e : option.value;
             });
+            let extra;
             if (this.onBeforeCommand) {
-                this.onBeforeCommand(interaction, optionsObj);
+                extra = this.onBeforeCommand(interaction, optionsObj);
             }
-            await command.run(interaction, this, optionsObj);
-            if (this.onAfterCommand) {
-                this.onAfterCommand(interaction, optionsObj);
+            try {
+                await command.run(interaction, this, optionsObj);
+                if (this.onAfterCommand) {
+                    this.onAfterCommand(interaction, optionsObj, extra);
+                }
+            }
+            catch (e) {
+                if (this.onCommandFailed) {
+                    this.onCommandFailed(interaction, optionsObj, e, extra);
+                }
+                else {
+                    throw e;
+                }
             }
         }
     }
@@ -185,12 +198,23 @@ class InteractionsClient extends discord_js_1.Client {
                     (_e = (_d = (_c = (_b = (_a = option.channel) !== null && _a !== void 0 ? _a : option.member) !== null && _b !== void 0 ? _b : option.message) !== null && _c !== void 0 ? _c : option.role) !== null && _d !== void 0 ? _d : option.user) !== null && _e !== void 0 ? _e : option.value;
             });
             const focused = interaction.options.getFocused(true);
+            let extra;
             if (this.onBeforeAutocomplete) {
-                this.onBeforeAutocomplete(interaction, focused.name, focused.value, optionsObj);
+                extra = this.onBeforeAutocomplete(interaction, focused.name, focused.value, optionsObj);
             }
-            command.autocomplete(interaction, focused.name, focused.value, this, optionsObj);
-            if (this.onAfterAutocomplete) {
-                this.onAfterAutocomplete(interaction, focused.name, focused.value, optionsObj);
+            try {
+                await command.autocomplete(interaction, focused.name, focused.value, this, optionsObj);
+                if (this.onAfterAutocomplete) {
+                    this.onAfterAutocomplete(interaction, focused.name, focused.value, optionsObj, extra);
+                }
+            }
+            catch (e) {
+                if (this.onAutocompleteFailed) {
+                    this.onAutocompleteFailed(interaction, focused.name, focused.value, optionsObj, e, extra);
+                }
+                else {
+                    throw e;
+                }
             }
         }
     }

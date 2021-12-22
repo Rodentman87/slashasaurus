@@ -32,7 +32,7 @@ interface IntercationsClientEvents extends ClientEvents {
   autocomplete: [interaction: AutocompleteInteraction];
 }
 
-export declare interface InteractionsClient extends Client {
+export declare interface InteractionsClient<T, U> extends Client {
   on<K extends keyof IntercationsClientEvents>(
     event: K,
     listener: (...args: IntercationsClientEvents[K]) => Awaited<void>
@@ -56,7 +56,7 @@ export declare interface InteractionsClient extends Client {
   removeAllListeners<K extends keyof IntercationsClientEvents>(event?: K): this;
 }
 
-export interface InteractionsClientOptions {
+export interface InteractionsClientOptions<T, U> {
   /**
    * You can pass any logger compatible with [pino]{@link https://getpino.io/#/}
    * and the client will log some internal information to it
@@ -71,27 +71,89 @@ export interface InteractionsClientOptions {
 
   /**
    * If specified, this will run just before a command handler is called.
-   * You can use this to
+   * You can use this to run logging or similar like adding sentry
+   * breadcrumbs.
+   *
+   * The returned object will be passed as the extra value to onAfterCommand
    */
   onBeforeCommand?: (
     interaction: CommandInteraction,
     optionsObj: Record<string, any>
-  ) => void;
+  ) => T;
+
+  /**
+   * If specified, this will run just after a command handler is called.
+   * You can use this to run cleanup of anything you set up in
+   * onBeforeCommand.
+   *
+   * @param extra This is the object you returned from onBeforeCommand
+   */
   onAfterCommand?: (
     interaction: CommandInteraction,
-    optionsObj: Record<string, any>
+    optionsObj: Record<string, any>,
+    extra?: T
   ) => void;
+
+  /**
+   * If specified, this will run just after a command handler is called if
+   * the command failed. You can use this to run cleanup of anything you
+   * set up in onBeforeCommand.
+   *
+   * @param extra This is the object you returned from onBeforeCommand
+   */
+  onCommandFailed?: (
+    interaction: CommandInteraction,
+    optionsObj: Record<string, any>,
+    error: any,
+    extra?: T
+  ) => void;
+
+  /**
+   * If specified, this will run just before an autocomplete handler is
+   * called. You can use this to run logging or similar like adding sentry
+   * breadcrumbs.
+   *
+   * The returned object will be passed as the extra value to
+   * onAfterAutocomplete
+   */
   onBeforeAutocomplete?: (
     interaction: AutocompleteInteraction,
     focusedName: string,
     focusedValue: string | number,
     optionsObj: Record<string, any>
-  ) => void;
+  ) => U;
+
+  /**
+   * If specified, this will run just after an autocomplete handler is
+   * called. You can use this to run cleanup of anything you set up in
+   * onBeforeAutocomplete.
+   *
+   * @param extra This is the object you returned from
+   * onBeforeAutocomplete
+   */
   onAfterAutocomplete?: (
     interaction: AutocompleteInteraction,
     focusedName: string,
     focusedValue: string | number,
-    optionsObj: Record<string, any>
+    optionsObj: Record<string, any>,
+    extra?: U
+  ) => void;
+
+  /**
+   * If specified, this will run just after an autocomplete handler is
+   * called if it throws an error. You can use this to run cleanup of
+   * anything you set up in onBeforeAutocomplete.
+   *
+   * @param extra This is the object you returned from
+   * onBeforeAutocomplete
+   */
+  onAutocompleteFailed?: (
+    interaction: AutocompleteInteraction,
+    focusedName: string,
+    focusedValue: string | number,
+    optionsObj: Record<string, any>,
+    error: any,
+    extra?: U
   ) => void;
 }
 
@@ -107,7 +169,7 @@ export interface Logger {
   error: LogFn;
 }
 
-export class InteractionsClient extends Client {
+export class InteractionsClient<T, U> extends Client {
   commandMap = new Map<string, SlashCommandBase<any>>();
   userContextMenuMap = new Map<string, ContextMenuBase>();
   messageContextMenuMap = new Map<string, ContextMenuBase>();
@@ -116,32 +178,53 @@ export class InteractionsClient extends Client {
   onBeforeCommand?: (
     interaction: CommandInteraction,
     optionsObj: Record<string, any>
-  ) => void;
+  ) => T;
   onAfterCommand?: (
     interaction: CommandInteraction,
-    optionsObj: Record<string, any>
+    optionsObj: Record<string, any>,
+    extra?: T
+  ) => void;
+  onCommandFailed?: (
+    interaction: CommandInteraction,
+    optionsObj: Record<string, any>,
+    error: any,
+    extra?: T
   ) => void;
   onBeforeAutocomplete?: (
     interaction: AutocompleteInteraction,
     focusedName: string,
     focusedValue: string | number,
     optionsObj: Record<string, any>
-  ) => void;
+  ) => U;
   onAfterAutocomplete?: (
     interaction: AutocompleteInteraction,
     focusedName: string,
     focusedValue: string | number,
-    optionsObj: Record<string, any>
+    optionsObj: Record<string, any>,
+    extra?: U
+  ) => void;
+  onAutocompleteFailed?: (
+    interaction: AutocompleteInteraction,
+    focusedName: string,
+    focusedValue: string | number,
+    optionsObj: Record<string, any>,
+    error: any,
+    extra?: U
   ) => void;
 
-  constructor(djsOptions: ClientOptions, options: InteractionsClientOptions) {
+  constructor(
+    djsOptions: ClientOptions,
+    options: InteractionsClientOptions<T, U>
+  ) {
     super(djsOptions);
     this.logger = options.logger;
     this.devServerId = options.devServerId;
     this.onBeforeCommand = options.onBeforeCommand;
     this.onAfterCommand = options.onAfterCommand;
+    this.onCommandFailed = options.onCommandFailed;
     this.onBeforeAutocomplete = options.onBeforeAutocomplete;
     this.onAfterAutocomplete = options.onAfterAutocomplete;
+    this.onAutocompleteFailed = options.onAutocompleteFailed;
     this.on('interactionCreate', this.handleInteractionEvent);
   }
 
@@ -358,13 +441,21 @@ export class InteractionsClient extends Client {
           option.user ??
           option.value;
       });
+      let extra;
       if (this.onBeforeCommand) {
-        this.onBeforeCommand(interaction, optionsObj);
+        extra = this.onBeforeCommand(interaction, optionsObj);
       }
-      // @ts-ignore
-      await command.run(interaction, this, optionsObj as any);
-      if (this.onAfterCommand) {
-        this.onAfterCommand(interaction, optionsObj);
+      try {
+        await command.run(interaction, this, optionsObj as any);
+        if (this.onAfterCommand) {
+          this.onAfterCommand(interaction, optionsObj, extra);
+        }
+      } catch (e) {
+        if (this.onCommandFailed) {
+          this.onCommandFailed(interaction, optionsObj, e, extra);
+        } else {
+          throw e;
+        }
       }
     }
   }
@@ -387,28 +478,45 @@ export class InteractionsClient extends Client {
           option.value;
       });
       const focused = interaction.options.getFocused(true);
+      let extra;
       if (this.onBeforeAutocomplete) {
-        this.onBeforeAutocomplete(
+        extra = this.onBeforeAutocomplete(
           interaction,
           focused.name,
           focused.value,
           optionsObj
         );
       }
-      command.autocomplete(
-        interaction,
-        focused.name,
-        focused.value,
-        this,
-        optionsObj as any
-      );
-      if (this.onAfterAutocomplete) {
-        this.onAfterAutocomplete(
+      try {
+        await command.autocomplete(
           interaction,
           focused.name,
           focused.value,
-          optionsObj
+          this,
+          optionsObj as any
         );
+        if (this.onAfterAutocomplete) {
+          this.onAfterAutocomplete(
+            interaction,
+            focused.name,
+            focused.value,
+            optionsObj,
+            extra
+          );
+        }
+      } catch (e) {
+        if (this.onAutocompleteFailed) {
+          this.onAutocompleteFailed(
+            interaction,
+            focused.name,
+            focused.value,
+            optionsObj,
+            e,
+            extra
+          );
+        } else {
+          throw e;
+        }
       }
     }
   }

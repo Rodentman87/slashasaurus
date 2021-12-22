@@ -8,20 +8,22 @@ interface IntercationsClientEvents extends ClientEvents {
     contextMenuRun: [interaction: ContextMenuInteraction];
     autocomplete: [interaction: AutocompleteInteraction];
 }
-export declare interface InteractionsClient extends Client {
+export declare interface InteractionsClient<T, U> extends Client {
     on<K extends keyof IntercationsClientEvents>(event: K, listener: (...args: IntercationsClientEvents[K]) => Awaited<void>): this;
     once<K extends keyof IntercationsClientEvents>(event: K, listener: (...args: IntercationsClientEvents[K]) => Awaited<void>): this;
     emit<K extends keyof IntercationsClientEvents>(event: K, ...args: IntercationsClientEvents[K]): boolean;
     off<K extends keyof IntercationsClientEvents>(event: K, listener: (...args: IntercationsClientEvents[K]) => Awaited<void>): this;
     removeAllListeners<K extends keyof IntercationsClientEvents>(event?: K): this;
 }
-export interface InteractionsClientOptions {
+export interface InteractionsClientOptions<T, U> {
     logger: Logger;
     devServerId: string;
-    onBeforeCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>) => void;
-    onAfterCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>) => void;
-    onBeforeAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>) => void;
-    onAfterAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>) => void;
+    onBeforeCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>) => T;
+    onAfterCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>, extra?: T) => void;
+    onCommandFailed?: (interaction: CommandInteraction, optionsObj: Record<string, any>, error: any, extra?: T) => void;
+    onBeforeAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>) => U;
+    onAfterAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>, extra?: U) => void;
+    onAutocompleteFailed?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>, error: any, extra?: U) => void;
 }
 interface LogFn {
     <T extends object>(obj: T, msg?: string, ...args: any[]): void;
@@ -32,17 +34,19 @@ export interface Logger {
     debug: LogFn;
     error: LogFn;
 }
-export declare class InteractionsClient extends Client {
+export declare class InteractionsClient<T, U> extends Client {
     commandMap: Map<string, SlashCommandBase<any>>;
     userContextMenuMap: Map<string, ContextMenuBase>;
     messageContextMenuMap: Map<string, ContextMenuBase>;
     logger: Logger;
     devServerId: string;
-    onBeforeCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>) => void;
-    onAfterCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>) => void;
-    onBeforeAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>) => void;
-    onAfterAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>) => void;
-    constructor(djsOptions: ClientOptions, options: InteractionsClientOptions);
+    onBeforeCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>) => T;
+    onAfterCommand?: (interaction: CommandInteraction, optionsObj: Record<string, any>, extra?: T) => void;
+    onCommandFailed?: (interaction: CommandInteraction, optionsObj: Record<string, any>, error: any, extra?: T) => void;
+    onBeforeAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>) => U;
+    onAfterAutocomplete?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>, extra?: U) => void;
+    onAutocompleteFailed?: (interaction: AutocompleteInteraction, focusedName: string, focusedValue: string | number, optionsObj: Record<string, any>, error: any, extra?: U) => void;
+    constructor(djsOptions: ClientOptions, options: InteractionsClientOptions<T, U>);
     registerCommandsFrom(folderPath: string): Promise<void>;
     private addMessageCommands;
     private addUserCommands;
