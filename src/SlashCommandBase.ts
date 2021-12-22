@@ -80,14 +80,17 @@ function handlersHasAutocomplete<
 }
 
 export class SlashCommand<
-  T extends ReadonlyArray<ApplicationCommandOptionData>,
-  U extends InteractionsClient
+  U extends InteractionsClient,
+  T extends ReadonlyArray<ApplicationCommandOptionData>
 > {
   commandInfo: ChatCommandOptions<T>;
 
+  /**
+   *
+   * @param commandInfo The general info for the command
+   * @param handlers
+   */
   constructor(
-    // @ts-expect-error
-    client: U,
     commandInfo: Omit<ChatCommandOptions<T>, 'type'>,
     handlers: HandlersType<T, U>
   ) {
@@ -102,10 +105,8 @@ export class SlashCommand<
 
   run(
     interaction: CommandInteraction,
-    // @ts-ignore
-    client: InteractionsClient,
-    // @ts-ignore
-    options: ReadonlyCommandOptionsObject<T>
+    _client: InteractionsClient,
+    _options: ReadonlyCommandOptionsObject<T>
   ) {
     interaction.reply({
       content: 'This command is not implemented yet',
@@ -115,14 +116,10 @@ export class SlashCommand<
 
   autocomplete(
     interaction: AutocompleteInteraction,
-    // @ts-ignore
-    focusedName: MapOptionsToAutocompleteNames<T>,
-    // @ts-ignore
-    focusedValue: string | number,
-    // @ts-ignore
-    client: InteractionsClient,
-    // @ts-ignore
-    options: Partial<ReadonlyCommandOptionsObject<T>>
+    _focusedName: MapOptionsToAutocompleteNames<T>,
+    _focusedValue: string | number,
+    _client: InteractionsClient,
+    _options: Partial<ReadonlyCommandOptionsObject<T>>
   ) {
     interaction.respond([
       {

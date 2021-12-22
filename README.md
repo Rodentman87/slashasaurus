@@ -1,0 +1,1 @@
+This library is not in a production ready state, nor is it really meant to be used by anyone yet. This is partially for my own bots (mostly just little toys) and partially just a proof of concept for a specific design that provides a strongly typed `options` object to your slash command's handler.

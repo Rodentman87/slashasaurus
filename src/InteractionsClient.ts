@@ -19,7 +19,6 @@ import {
   UserApplicationCommandData,
 } from 'discord.js';
 import path from 'path';
-import { Logger } from 'pino';
 import requireAll from 'require-all';
 import { ContextMenuBase } from './ContextMenuBase';
 import { SlashCommandBase, SlashCommand } from './SlashCommandBase';
@@ -57,17 +56,92 @@ export declare interface InteractionsClient extends Client {
   removeAllListeners<K extends keyof IntercationsClientEvents>(event?: K): this;
 }
 
+export interface InteractionsClientOptions {
+  /**
+   * You can pass any logger compatible with [pino]{@link https://getpino.io/#/}
+   * and the client will log some internal information to it
+   */
+  logger: Logger;
+
+  /**
+   * This will be used to register guild commands when running the bot
+   * in development
+   */
+  devServerId: string;
+
+  /**
+   * If specified, this will run just before a command handler is called.
+   * You can use this to
+   */
+  onBeforeCommand?: (
+    interaction: CommandInteraction,
+    optionsObj: Record<string, any>
+  ) => void;
+  onAfterCommand?: (
+    interaction: CommandInteraction,
+    optionsObj: Record<string, any>
+  ) => void;
+  onBeforeAutocomplete?: (
+    interaction: AutocompleteInteraction,
+    focusedName: string,
+    focusedValue: string | number,
+    optionsObj: Record<string, any>
+  ) => void;
+  onAfterAutocomplete?: (
+    interaction: AutocompleteInteraction,
+    focusedName: string,
+    focusedValue: string | number,
+    optionsObj: Record<string, any>
+  ) => void;
+}
+
+interface LogFn {
+  /* tslint:disable:no-unnecessary-generics */
+  <T extends object>(obj: T, msg?: string, ...args: any[]): void;
+  (msg: string, ...args: any[]): void;
+}
+
+export interface Logger {
+  info: LogFn;
+  debug: LogFn;
+  error: LogFn;
+}
+
 export class InteractionsClient extends Client {
   commandMap = new Map<string, SlashCommandBase<any>>();
   userContextMenuMap = new Map<string, ContextMenuBase>();
   messageContextMenuMap = new Map<string, ContextMenuBase>();
   logger: Logger;
   devServerId: string;
+  onBeforeCommand?: (
+    interaction: CommandInteraction,
+    optionsObj: Record<string, any>
+  ) => void;
+  onAfterCommand?: (
+    interaction: CommandInteraction,
+    optionsObj: Record<string, any>
+  ) => void;
+  onBeforeAutocomplete?: (
+    interaction: AutocompleteInteraction,
+    focusedName: string,
+    focusedValue: string | number,
+    optionsObj: Record<string, any>
+  ) => void;
+  onAfterAutocomplete?: (
+    interaction: AutocompleteInteraction,
+    focusedName: string,
+    focusedValue: string | number,
+    optionsObj: Record<string, any>
+  ) => void;
 
-  constructor(options: ClientOptions, logger: Logger, devServerId: string) {
-    super(options);
-    this.logger = logger;
-    this.devServerId = devServerId;
+  constructor(djsOptions: ClientOptions, options: InteractionsClientOptions) {
+    super(djsOptions);
+    this.logger = options.logger;
+    this.devServerId = options.devServerId;
+    this.onBeforeCommand = options.onBeforeCommand;
+    this.onAfterCommand = options.onAfterCommand;
+    this.onBeforeAutocomplete = options.onBeforeAutocomplete;
+    this.onAfterAutocomplete = options.onAfterAutocomplete;
     this.on('interactionCreate', this.handleInteractionEvent);
   }
 
@@ -257,7 +331,7 @@ export class InteractionsClient extends Client {
       this.handleContextMenu(interaction);
       this.emit('contextMenuRun', interaction);
     } else if (interaction.isAutocomplete()) {
-      this.handleAutocomplet(interaction);
+      this.handleAutocomplete(interaction);
       this.emit('autocomplete', interaction);
     }
   }
@@ -268,8 +342,7 @@ export class InteractionsClient extends Client {
     if (!command) {
       this.logger.error(`Unregistered command ${commandName} being run`);
       interaction.reply({
-        content:
-          'There appears to be an issue with this command, contact `Rodentman87#8787` about this',
+        content: 'There appears to be an issue with this command',
         ephemeral: true,
       });
     } else {
@@ -285,12 +358,18 @@ export class InteractionsClient extends Client {
           option.user ??
           option.value;
       });
+      if (this.onBeforeCommand) {
+        this.onBeforeCommand(interaction, optionsObj);
+      }
       // @ts-ignore
-      command.run(interaction, this, optionsObj as any);
+      await command.run(interaction, this, optionsObj as any);
+      if (this.onAfterCommand) {
+        this.onAfterCommand(interaction, optionsObj);
+      }
     }
   }
 
-  async handleAutocomplet(interaction: AutocompleteInteraction) {
+  async handleAutocomplete(interaction: AutocompleteInteraction) {
     const commandName = interaction.commandName;
     const command = this.commandMap.get(commandName);
     if (!command) {
@@ -308,6 +387,14 @@ export class InteractionsClient extends Client {
           option.value;
       });
       const focused = interaction.options.getFocused(true);
+      if (this.onBeforeAutocomplete) {
+        this.onBeforeAutocomplete(
+          interaction,
+          focused.name,
+          focused.value,
+          optionsObj
+        );
+      }
       command.autocomplete(
         interaction,
         focused.name,
@@ -315,6 +402,14 @@ export class InteractionsClient extends Client {
         this,
         optionsObj as any
       );
+      if (this.onAfterAutocomplete) {
+        this.onAfterAutocomplete(
+          interaction,
+          focused.name,
+          focused.value,
+          optionsObj
+        );
+      }
     }
   }
 
@@ -329,8 +424,7 @@ export class InteractionsClient extends Client {
         `Unregistered context command ${commandName} being run`
       );
       interaction.reply({
-        content:
-          'There appears to be an issue with this command, contact `Rodentman87#8787` about this',
+        content: 'There appears to be an issue with this command',
         ephemeral: true,
       });
     } else {

@@ -9,13 +9,17 @@ const path_1 = __importDefault(require("path"));
 const require_all_1 = __importDefault(require("require-all"));
 const utils_1 = require("./utils");
 class InteractionsClient extends discord_js_1.Client {
-    constructor(options, logger, devServerId) {
-        super(options);
+    constructor(djsOptions, options) {
+        super(djsOptions);
         this.commandMap = new Map();
         this.userContextMenuMap = new Map();
         this.messageContextMenuMap = new Map();
-        this.logger = logger;
-        this.devServerId = devServerId;
+        this.logger = options.logger;
+        this.devServerId = options.devServerId;
+        this.onBeforeCommand = options.onBeforeCommand;
+        this.onAfterCommand = options.onAfterCommand;
+        this.onBeforeAutocomplete = options.onBeforeAutocomplete;
+        this.onAfterAutocomplete = options.onAfterAutocomplete;
         this.on('interactionCreate', this.handleInteractionEvent);
     }
     async registerCommandsFrom(folderPath) {
@@ -134,7 +138,7 @@ class InteractionsClient extends discord_js_1.Client {
             this.emit('contextMenuRun', interaction);
         }
         else if (interaction.isAutocomplete()) {
-            this.handleAutocomplet(interaction);
+            this.handleAutocomplete(interaction);
             this.emit('autocomplete', interaction);
         }
     }
@@ -144,7 +148,7 @@ class InteractionsClient extends discord_js_1.Client {
         if (!command) {
             this.logger.error(`Unregistered command ${commandName} being run`);
             interaction.reply({
-                content: 'There appears to be an issue with this command, contact `Rodentman87#8787` about this',
+                content: 'There appears to be an issue with this command',
                 ephemeral: true,
             });
         }
@@ -157,10 +161,16 @@ class InteractionsClient extends discord_js_1.Client {
                 optionsObj[option.name] =
                     (_e = (_d = (_c = (_b = (_a = option.channel) !== null && _a !== void 0 ? _a : option.member) !== null && _b !== void 0 ? _b : option.message) !== null && _c !== void 0 ? _c : option.role) !== null && _d !== void 0 ? _d : option.user) !== null && _e !== void 0 ? _e : option.value;
             });
-            command.run(interaction, this, optionsObj);
+            if (this.onBeforeCommand) {
+                this.onBeforeCommand(interaction, optionsObj);
+            }
+            await command.run(interaction, this, optionsObj);
+            if (this.onAfterCommand) {
+                this.onAfterCommand(interaction, optionsObj);
+            }
         }
     }
-    async handleAutocomplet(interaction) {
+    async handleAutocomplete(interaction) {
         const commandName = interaction.commandName;
         const command = this.commandMap.get(commandName);
         if (!command) {
@@ -175,7 +185,13 @@ class InteractionsClient extends discord_js_1.Client {
                     (_e = (_d = (_c = (_b = (_a = option.channel) !== null && _a !== void 0 ? _a : option.member) !== null && _b !== void 0 ? _b : option.message) !== null && _c !== void 0 ? _c : option.role) !== null && _d !== void 0 ? _d : option.user) !== null && _e !== void 0 ? _e : option.value;
             });
             const focused = interaction.options.getFocused(true);
+            if (this.onBeforeAutocomplete) {
+                this.onBeforeAutocomplete(interaction, focused.name, focused.value, optionsObj);
+            }
             command.autocomplete(interaction, focused.name, focused.value, this, optionsObj);
+            if (this.onAfterAutocomplete) {
+                this.onAfterAutocomplete(interaction, focused.name, focused.value, optionsObj);
+            }
         }
     }
     async handleContextMenu(interaction) {
@@ -186,7 +202,7 @@ class InteractionsClient extends discord_js_1.Client {
         if (!command) {
             this.logger.error(`Unregistered context command ${commandName} being run`);
             interaction.reply({
-                content: 'There appears to be an issue with this command, contact `Rodentman87#8787` about this',
+                content: 'There appears to be an issue with this command',
                 ephemeral: true,
             });
         }

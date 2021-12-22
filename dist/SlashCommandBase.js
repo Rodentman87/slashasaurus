@@ -11,7 +11,7 @@ function handlersHasAutocomplete(handlers) {
     return 'autocomplete' in handlers;
 }
 class SlashCommand {
-    constructor(client, commandInfo, handlers) {
+    constructor(commandInfo, handlers) {
         const info = commandInfo;
         info.type = 'CHAT_INPUT';
         this.commandInfo = info;
@@ -19,17 +19,17 @@ class SlashCommand {
         if (handlersHasAutocomplete(handlers))
             this.autocomplete = handlers.autocomplete;
     }
-    run(interaction, client, options) {
+    run(interaction, _client, _options) {
         interaction.reply({
             content: 'This command is not implemented yet',
             ephemeral: true,
         });
     }
-    autocomplete(interaction, focusedName, focusedValue, client, options) {
+    autocomplete(interaction, _focusedName, _focusedValue, _client, _options) {
         interaction.respond([
             {
                 name: "This interaction isn't implemented yet",
-                value: 'erro',
+                value: 'error',
             },
         ]);
     }
