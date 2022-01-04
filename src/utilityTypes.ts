@@ -1,19 +1,14 @@
 import {
   ApplicationCommandOptionChoice,
   ApplicationCommandOptionData,
+  CacheType,
+  CommandInteractionOption,
   CommandOptionChoiceResolvableType,
-  GuildChannel,
-  GuildMember,
-  Role,
   User,
 } from 'discord.js';
-import {
-  RawGuildChannelData,
-  RawRoleData,
-  RawUserData,
-} from 'discord.js/typings/rawDataTypes';
 
 export type PropType<TObj, TProp extends keyof TObj> = TObj[TProp];
+export type HasProp<TObj, TProp> = TProp extends keyof TObj ? true : false;
 export type HasKey<
   T,
   Key extends string | number | symbol
@@ -55,10 +50,10 @@ type HasChoices = {
   choices: ApplicationCommandOptionChoice[];
 };
 
-type OptionToValue<T extends ApplicationCommandOptionData> = PropType<
-  T,
-  'type'
-> extends 'STRING'
+type OptionToValue<
+  T extends ApplicationCommandOptionData,
+  Cached extends CacheType = CacheType
+> = PropType<T, 'type'> extends 'STRING'
   ? T extends HasChoices
     ? MapChoicesToValues<PropType<T, 'choices'>>
     : string
@@ -69,28 +64,32 @@ type OptionToValue<T extends ApplicationCommandOptionData> = PropType<
   : PropType<T, 'type'> extends 'BOOLEAN'
   ? boolean
   : PropType<T, 'type'> extends 'USER'
-  ? User | RawUserData
+  ? User
   : PropType<T, 'type'> extends 'CHANNEL'
-  ? GuildChannel | RawGuildChannelData
+  ? NonNullable<CommandInteractionOption<Cached>['channel']>
   : PropType<T, 'type'> extends 'ROLE'
-  ? Role | RawRoleData
+  ? NonNullable<CommandInteractionOption<Cached>['role']>
   : PropType<T, 'type'> extends 'MENTIONABLE'
-  ? User | RawUserData | GuildMember | Role | RawRoleData
+  ? NonNullable<CommandInteractionOption<Cached>['member' | 'role' | 'user']>
   : PropType<T, 'type'> extends 'NUMBER'
   ? T extends HasChoices
     ? MapChoicesToValues<PropType<T, 'choices'>>
     : number
   : null;
 
-type MapOptionToKeyedObject<T extends ApplicationCommandOptionData> = PropType<
-  T,
-  'required'
-> extends true
-  ? {
-      [K in PropType<T, 'name'>]: OptionToValue<T>;
-    }
+type MapOptionToKeyedObject<
+  T extends ApplicationCommandOptionData,
+  Cached extends CacheType = CacheType
+> = T extends { required?: boolean }
+  ? PropType<T, 'required'> extends true
+    ? {
+        [K in PropType<T, 'name'>]: OptionToValue<T, Cached>;
+      }
+    : {
+        [K in PropType<T, 'name'>]: OptionToValue<T, Cached> | null;
+      }
   : {
-      [K in PropType<T, 'name'>]?: OptionToValue<T>;
+      [K in PropType<T, 'name'>]: OptionToValue<T, Cached>;
     };
 
 export type CommandOptionsObject<

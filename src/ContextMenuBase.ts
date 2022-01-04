@@ -11,6 +11,6 @@ export abstract class ContextMenuBase {
     | MessageApplicationCommandData;
   abstract run(
     interaction: ContextMenuInteraction,
-    client: InteractionsClient<any, any>
+    client: InteractionsClient
   ): void;
 }

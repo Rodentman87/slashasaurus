@@ -1,15 +1,13 @@
 import {
-  ApplicationCommand,
   ApplicationCommandData,
   ApplicationCommandManager,
   AutocompleteInteraction,
-  Awaited,
+  Awaitable,
   ButtonInteraction,
   ChatInputApplicationCommandData,
   Client,
   ClientEvents,
   ClientOptions,
-  Collection,
   CommandInteraction,
   ContextMenuInteraction,
   GuildApplicationCommandManager,
@@ -21,8 +19,12 @@ import {
 import path from 'path';
 import requireAll from 'require-all';
 import { ContextMenuBase } from './ContextMenuBase';
-import { SlashCommandBase, SlashCommand } from './SlashCommandBase';
-import { partitionCommands } from './utils';
+import { Pipeline, Middleware } from './MiddlewarePipeline';
+import {
+  SlashCommand,
+  CommandRunFunction,
+  AutocompleteFunction,
+} from './SlashCommandBase';
 
 interface IntercationsClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
@@ -32,15 +34,15 @@ interface IntercationsClientEvents extends ClientEvents {
   autocomplete: [interaction: AutocompleteInteraction];
 }
 
-export declare interface InteractionsClient<T, U> extends Client {
+export declare interface InteractionsClient extends Client {
   on<K extends keyof IntercationsClientEvents>(
     event: K,
-    listener: (...args: IntercationsClientEvents[K]) => Awaited<void>
+    listener: (...args: IntercationsClientEvents[K]) => Awaitable<void>
   ): this;
 
   once<K extends keyof IntercationsClientEvents>(
     event: K,
-    listener: (...args: IntercationsClientEvents[K]) => Awaited<void>
+    listener: (...args: IntercationsClientEvents[K]) => Awaitable<void>
   ): this;
 
   emit<K extends keyof IntercationsClientEvents>(
@@ -50,15 +52,15 @@ export declare interface InteractionsClient<T, U> extends Client {
 
   off<K extends keyof IntercationsClientEvents>(
     event: K,
-    listener: (...args: IntercationsClientEvents[K]) => Awaited<void>
+    listener: (...args: IntercationsClientEvents[K]) => Awaitable<void>
   ): this;
 
   removeAllListeners<K extends keyof IntercationsClientEvents>(event?: K): this;
 }
 
-export interface InteractionsClientOptions<T, U> {
+export interface InteractionsClientOptions {
   /**
-   * You can pass any logger compatible with [pino]{@link https://getpino.io/#/}
+   * You can pass any logger compatible with [pino](https://getpino.io/)
    * and the client will log some internal information to it
    */
   logger: Logger;
@@ -68,93 +70,6 @@ export interface InteractionsClientOptions<T, U> {
    * in development
    */
   devServerId: string;
-
-  /**
-   * If specified, this will run just before a command handler is called.
-   * You can use this to run logging or similar like adding sentry
-   * breadcrumbs.
-   *
-   * The returned object will be passed as the extra value to onAfterCommand
-   */
-  onBeforeCommand?: (
-    interaction: CommandInteraction,
-    optionsObj: Record<string, any>
-  ) => T;
-
-  /**
-   * If specified, this will run just after a command handler is called.
-   * You can use this to run cleanup of anything you set up in
-   * onBeforeCommand.
-   *
-   * @param extra This is the object you returned from onBeforeCommand
-   */
-  onAfterCommand?: (
-    interaction: CommandInteraction,
-    optionsObj: Record<string, any>,
-    extra?: T
-  ) => void;
-
-  /**
-   * If specified, this will run just after a command handler is called if
-   * the command failed. You can use this to run cleanup of anything you
-   * set up in onBeforeCommand.
-   *
-   * @param extra This is the object you returned from onBeforeCommand
-   */
-  onCommandFailed?: (
-    interaction: CommandInteraction,
-    optionsObj: Record<string, any>,
-    error: any,
-    extra?: T
-  ) => void;
-
-  /**
-   * If specified, this will run just before an autocomplete handler is
-   * called. You can use this to run logging or similar like adding sentry
-   * breadcrumbs.
-   *
-   * The returned object will be passed as the extra value to
-   * onAfterAutocomplete
-   */
-  onBeforeAutocomplete?: (
-    interaction: AutocompleteInteraction,
-    focusedName: string,
-    focusedValue: string | number,
-    optionsObj: Record<string, any>
-  ) => U;
-
-  /**
-   * If specified, this will run just after an autocomplete handler is
-   * called. You can use this to run cleanup of anything you set up in
-   * onBeforeAutocomplete.
-   *
-   * @param extra This is the object you returned from
-   * onBeforeAutocomplete
-   */
-  onAfterAutocomplete?: (
-    interaction: AutocompleteInteraction,
-    focusedName: string,
-    focusedValue: string | number,
-    optionsObj: Record<string, any>,
-    extra?: U
-  ) => void;
-
-  /**
-   * If specified, this will run just after an autocomplete handler is
-   * called if it throws an error. You can use this to run cleanup of
-   * anything you set up in onBeforeAutocomplete.
-   *
-   * @param extra This is the object you returned from
-   * onBeforeAutocomplete
-   */
-  onAutocompleteFailed?: (
-    interaction: AutocompleteInteraction,
-    focusedName: string,
-    focusedValue: string | number,
-    optionsObj: Record<string, any>,
-    error: any,
-    extra?: U
-  ) => void;
 }
 
 interface LogFn {
@@ -169,63 +84,22 @@ export interface Logger {
   error: LogFn;
 }
 
-export class InteractionsClient<T, U> extends Client {
-  commandMap = new Map<string, SlashCommandBase<any>>();
+export class InteractionsClient extends Client {
+  commandMap = new Map<string, SlashCommand<any>>();
   userContextMenuMap = new Map<string, ContextMenuBase>();
   messageContextMenuMap = new Map<string, ContextMenuBase>();
   logger: Logger;
   devServerId: string;
-  onBeforeCommand?: (
-    interaction: CommandInteraction,
-    optionsObj: Record<string, any>
-  ) => T;
-  onAfterCommand?: (
-    interaction: CommandInteraction,
-    optionsObj: Record<string, any>,
-    extra?: T
-  ) => void;
-  onCommandFailed?: (
-    interaction: CommandInteraction,
-    optionsObj: Record<string, any>,
-    error: any,
-    extra?: T
-  ) => void;
-  onBeforeAutocomplete?: (
-    interaction: AutocompleteInteraction,
-    focusedName: string,
-    focusedValue: string | number,
-    optionsObj: Record<string, any>
-  ) => U;
-  onAfterAutocomplete?: (
-    interaction: AutocompleteInteraction,
-    focusedName: string,
-    focusedValue: string | number,
-    optionsObj: Record<string, any>,
-    extra?: U
-  ) => void;
-  onAutocompleteFailed?: (
-    interaction: AutocompleteInteraction,
-    focusedName: string,
-    focusedValue: string | number,
-    optionsObj: Record<string, any>,
-    error: any,
-    extra?: U
-  ) => void;
+  chatCommandMiddleware: Pipeline<CommandRunFunction<readonly [], this>>;
+  autocompleteMiddleware: Pipeline<AutocompleteFunction<readonly [], this>>;
 
-  constructor(
-    djsOptions: ClientOptions,
-    options: InteractionsClientOptions<T, U>
-  ) {
+  constructor(djsOptions: ClientOptions, options: InteractionsClientOptions) {
     super(djsOptions);
     this.logger = options.logger;
     this.devServerId = options.devServerId;
-    this.onBeforeCommand = options.onBeforeCommand;
-    this.onAfterCommand = options.onAfterCommand;
-    this.onCommandFailed = options.onCommandFailed;
-    this.onBeforeAutocomplete = options.onBeforeAutocomplete;
-    this.onAfterAutocomplete = options.onAfterAutocomplete;
-    this.onAutocompleteFailed = options.onAutocompleteFailed;
     this.on('interactionCreate', this.handleInteractionEvent);
+    this.chatCommandMiddleware = new Pipeline();
+    this.autocompleteMiddleware = new Pipeline();
   }
 
   /**
@@ -250,41 +124,25 @@ export class InteractionsClient<T, U> extends Client {
     this.addMessageCommands(commands, commandData);
 
     let manager: ApplicationCommandManager | GuildApplicationCommandManager;
-    let oldCommands: Collection<string, ApplicationCommand>;
     if (process.env.NODE_ENV === 'development') {
       manager = this.guilds.cache.get(this.devServerId)!.commands;
-      oldCommands = await manager.fetch();
     } else {
       manager = this.application!.commands;
-      oldCommands = await manager.fetch();
     }
 
-    this.logger.info('Fetching old commands');
-    const output = partitionCommands(
-      Array.from(oldCommands!.values()),
-      commandData
-    );
-    this.logger.debug(output.added);
-    this.logger.debug(output.same);
-    this.logger.debug(output.removed);
+    manager.set(commandData);
 
-    if (output.same.length < 1) {
-      // All the commands are new
-      manager.set(output.added);
-    } else {
-      // We need to update stuff the hard way
-      output.added.forEach((newCommand) => {
-        manager.create(newCommand);
-      });
-      output.removed.forEach((oldCommand) => {
-        manager.delete(oldCommand);
-      });
-      output.same.forEach(({ oldCommand, newCommand }) => {
-        if (!oldCommand.equals(newCommand))
-          manager.edit(oldCommand, newCommand);
-      });
-    }
     this.logger.info('Finished registering commands');
+  }
+
+  useCommandMiddleware(fn: Middleware<CommandRunFunction<readonly [], this>>) {
+    this.chatCommandMiddleware.push(fn);
+  }
+
+  useAutocompleteMiddleware(
+    fn: Middleware<AutocompleteFunction<readonly [], this>>
+  ) {
+    this.autocompleteMiddleware.push(fn);
   }
 
   private addMessageCommands(
@@ -362,9 +220,7 @@ export class InteractionsClient<T, U> extends Client {
         this.logger.debug(commandFile);
         if (commandFile.command) {
           // This is a basic command
-          const command = commandFile.command as
-            | SlashCommandBase<any>
-            | SlashCommand<any, any>;
+          const command = commandFile.command as SlashCommand<any, any>;
           // @ts-ignore
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(command.commandInfo);
@@ -419,7 +275,7 @@ export class InteractionsClient<T, U> extends Client {
     }
   }
 
-  async handleCommand(interaction: CommandInteraction) {
+  private async handleCommand(interaction: CommandInteraction) {
     const commandName = interaction.commandName;
     const command = this.commandMap.get(commandName);
     if (!command) {
@@ -441,26 +297,16 @@ export class InteractionsClient<T, U> extends Client {
           option.user ??
           option.value;
       });
-      let extra;
-      if (this.onBeforeCommand) {
-        extra = this.onBeforeCommand(interaction, optionsObj);
-      }
-      try {
-        await command.run(interaction, this, optionsObj as any);
-        if (this.onAfterCommand) {
-          this.onAfterCommand(interaction, optionsObj, extra);
-        }
-      } catch (e) {
-        if (this.onCommandFailed) {
-          this.onCommandFailed(interaction, optionsObj, e, extra);
-        } else {
-          throw e;
-        }
-      }
+      await this.chatCommandMiddleware.execute(
+        command.run,
+        interaction,
+        this,
+        optionsObj
+      );
     }
   }
 
-  async handleAutocomplete(interaction: AutocompleteInteraction) {
+  private async handleAutocomplete(interaction: AutocompleteInteraction) {
     const commandName = interaction.commandName;
     const command = this.commandMap.get(commandName);
     if (!command) {
@@ -478,50 +324,19 @@ export class InteractionsClient<T, U> extends Client {
           option.value;
       });
       const focused = interaction.options.getFocused(true);
-      let extra;
-      if (this.onBeforeAutocomplete) {
-        extra = this.onBeforeAutocomplete(
-          interaction,
-          focused.name,
-          focused.value,
-          optionsObj
-        );
-      }
-      try {
-        await command.autocomplete(
-          interaction,
-          focused.name,
-          focused.value,
-          this,
-          optionsObj as any
-        );
-        if (this.onAfterAutocomplete) {
-          this.onAfterAutocomplete(
-            interaction,
-            focused.name,
-            focused.value,
-            optionsObj,
-            extra
-          );
-        }
-      } catch (e) {
-        if (this.onAutocompleteFailed) {
-          this.onAutocompleteFailed(
-            interaction,
-            focused.name,
-            focused.value,
-            optionsObj,
-            e,
-            extra
-          );
-        } else {
-          throw e;
-        }
-      }
+      await this.autocompleteMiddleware.execute(
+        command.autocomplete,
+        interaction,
+        // @ts-expect-error The type here will be `never` but that's because we're using generics dumb
+        focused.name,
+        focused.value,
+        this,
+        optionsObj
+      );
     }
   }
 
-  async handleContextMenu(interaction: ContextMenuInteraction) {
+  private async handleContextMenu(interaction: ContextMenuInteraction) {
     const commandName = interaction.commandName;
     const command =
       interaction.targetType === 'MESSAGE'

@@ -5,7 +5,6 @@ import {
 } from 'discord.js';
 import { InteractionsClient } from './InteractionsClient';
 import {
-  CommandOptionsObject,
   MapOptionsToAutocompleteNames,
   ReadonlyCommandOptionsObject,
 } from './utilityTypes';
@@ -17,71 +16,47 @@ type ChatCommandOptions<T> = {
   options: T;
   defaultPermission?: boolean;
 };
-export abstract class SlashCommandBase<
-  T extends Array<ApplicationCommandOptionData>
-> {
-  commandInfo: ChatCommandOptions<T>;
 
-  constructor(commandInfo: ChatCommandOptions<T>) {
-    this.commandInfo = commandInfo;
-  }
+export type CommandRunFunction<
+  T extends ReadonlyArray<ApplicationCommandOptionData>,
+  U extends InteractionsClient
+> = (
+  interaction: CommandInteraction,
+  client: U,
+  options: ReadonlyCommandOptionsObject<T>
+) => void;
 
-  abstract run(
-    interaction: CommandInteraction,
-    client: InteractionsClient<any, any>,
-    options: CommandOptionsObject<T>
-  ): void;
-
-  abstract autocomplete(
-    interaction: AutocompleteInteraction,
-    focusedName: MapOptionsToAutocompleteNames<T>,
-    focusedValue: string | number,
-    client: InteractionsClient<any, any>,
-    options: CommandOptionsObject<T>
-  ): void;
-}
+export type AutocompleteFunction<
+  T extends ReadonlyArray<ApplicationCommandOptionData>,
+  U extends InteractionsClient
+> = (
+  interaction: AutocompleteInteraction,
+  focusedName: MapOptionsToAutocompleteNames<T>,
+  focusedValue: string | number,
+  client: U,
+  options: Partial<ReadonlyCommandOptionsObject<T>>
+) => void;
 
 type HandlersType<
   T extends ReadonlyArray<ApplicationCommandOptionData>,
-  U extends InteractionsClient<any, any>
+  U extends InteractionsClient
 > = MapOptionsToAutocompleteNames<T> extends never
   ? {
-      run: (
-        interaction: CommandInteraction,
-        client: U,
-        options: ReadonlyCommandOptionsObject<T>
-      ) => void;
+      run: CommandRunFunction<T, U>;
     }
   : HandlersWithAutoComplete<T, U>;
 
 type HandlersWithAutoComplete<
   T extends ReadonlyArray<ApplicationCommandOptionData>,
-  U extends InteractionsClient<any, any>
+  U extends InteractionsClient
 > = {
-  run: (
-    interaction: CommandInteraction,
-    client: U,
-    options: ReadonlyCommandOptionsObject<T>
-  ) => void;
-  autocomplete: (
-    interaction: AutocompleteInteraction,
-    focusedName: MapOptionsToAutocompleteNames<T>,
-    focusedValue: string | number,
-    client: U,
-    options: Partial<ReadonlyCommandOptionsObject<T>>
-  ) => void;
+  run: CommandRunFunction<T, U>;
+  autocomplete: AutocompleteFunction<T, U>;
 };
 
-function handlersHasAutocomplete<
-  T extends ReadonlyArray<ApplicationCommandOptionData>,
-  U extends InteractionsClient<any, any>
->(handlers: HandlersType<T, U>): handlers is HandlersWithAutoComplete<T, U> {
-  return 'autocomplete' in handlers;
-}
-
 export class SlashCommand<
-  U extends InteractionsClient<any, any>,
-  T extends ReadonlyArray<ApplicationCommandOptionData>
+  U extends InteractionsClient,
+  T extends ReadonlyArray<ApplicationCommandOptionData> = readonly []
 > {
   commandInfo: ChatCommandOptions<T>;
 
@@ -98,9 +73,7 @@ export class SlashCommand<
     info.type = 'CHAT_INPUT';
     this.commandInfo = info;
     this.run = handlers.run;
-    // @ts-expect-error
-    if (handlersHasAutocomplete(handlers))
-      this.autocomplete = handlers.autocomplete;
+    if ('autocomplete' in handlers) this.autocomplete = handlers.autocomplete;
   }
 
   run(
