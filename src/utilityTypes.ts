@@ -3,9 +3,17 @@ import {
   ApplicationCommandOptionData,
   CacheType,
   CommandInteractionOption,
+  CommandOptionChannelResolvableType,
   CommandOptionChoiceResolvableType,
+  CommandOptionNonChoiceResolvableType,
+  CommandOptionNumericResolvableType,
+  ExcludeEnum,
   User,
 } from 'discord.js';
+import {
+  ApplicationCommandOptionTypes,
+  ChannelTypes,
+} from 'discord.js/typings/enums';
 
 export type PropType<TObj, TProp extends keyof TObj> = TObj[TProp];
 export type HasProp<TObj, TProp> = TProp extends keyof TObj ? true : false;
@@ -40,18 +48,21 @@ type TailOfReadonly<T extends Readonly<any[]>> = ((
   ? Tail_
   : never;
 
-type MapChoicesToValues<T extends Array<ApplicationCommandOptionChoice>> =
-  Length<T> extends 1
-    ? PropType<Head<T>, 'value'>
-    : PropType<Head<T>, 'value'> | MapChoicesToValues<Tail<T>>;
+type MapChoicesToValues<
+  T extends ReadonlyArray<ApplicationCommandOptionChoice>
+> = LengthOfReadonly<T> extends 1
+  ? PropType<HeadOfReadonly<T>, 'value'>
+  :
+      | PropType<HeadOfReadonly<T>, 'value'>
+      | MapChoicesToValues<TailOfReadonly<T>>;
 
 type HasChoices = {
   type: CommandOptionChoiceResolvableType;
-  choices: ApplicationCommandOptionChoice[];
+  choices: ReadonlyArray<ApplicationCommandOptionChoice>;
 };
 
 type OptionToValue<
-  T extends ApplicationCommandOptionData,
+  T extends ReadonlyApplicationCommandOptionData,
   Cached extends CacheType = CacheType
 > = PropType<T, 'type'> extends 'STRING'
   ? T extends HasChoices
@@ -78,7 +89,7 @@ type OptionToValue<
   : null;
 
 type MapOptionToKeyedObject<
-  T extends ApplicationCommandOptionData,
+  T extends ReadonlyApplicationCommandOptionData,
   Cached extends CacheType = CacheType
 > = T extends { required?: boolean }
   ? PropType<T, 'required'> extends true
@@ -93,7 +104,7 @@ type MapOptionToKeyedObject<
     };
 
 export type CommandOptionsObject<
-  T extends Array<ApplicationCommandOptionData>
+  T extends Array<ReadonlyApplicationCommandOptionData>
 > = Length<T> extends 0
   ? {}
   : Length<T> extends 1
@@ -101,7 +112,7 @@ export type CommandOptionsObject<
   : MapOptionToKeyedObject<Head<T>> & CommandOptionsObject<Tail<T>>;
 
 export type ReadonlyCommandOptionsObject<
-  T extends ReadonlyArray<ApplicationCommandOptionData>
+  T extends ReadonlyArray<ReadonlyApplicationCommandOptionData>
 > = LengthOfReadonly<T> extends 0
   ? {}
   : LengthOfReadonly<T> extends 1
@@ -114,11 +125,12 @@ export type OptionsConstToType<
   T extends NestedReadonlyArray<Array<ApplicationCommandOptionData>>
 > = RemoveNestedReadonlyFromArray<T>;
 
-type MapOptionToAutocompleteName<T extends ApplicationCommandOptionData> =
-  T extends { autocomplete: true } ? PropType<T, 'name'> : never;
+type MapOptionToAutocompleteName<
+  T extends ReadonlyApplicationCommandOptionData
+> = T extends { autocomplete: true } ? PropType<T, 'name'> : never;
 
 export type MapOptionsToAutocompleteNames<
-  T extends ReadonlyArray<ApplicationCommandOptionData>
+  T extends ReadonlyArray<ReadonlyApplicationCommandOptionData>
 > = LengthOfReadonly<T> extends 0
   ? never
   : LengthOfReadonly<T> extends 1
@@ -156,7 +168,7 @@ type RemoveReadOnly<T> = {
     : T[K];
 };
 
-type AddReadOnly<T> = {
+export type AddReadOnly<T> = {
   readonly [K in keyof T]: T[K] extends any[]
     ? NestedReadonlyArray<T[K]>
     : T[K];
@@ -173,3 +185,57 @@ type RemoveNestedReadonlyFromArray<T extends Readonly<Array<any>>> =
 type NestedReadonlyArray<T extends any[]> = Length<T> extends 1
   ? [AddReadOnly<Head<T>>]
   : [AddReadOnly<Head<T>>, ...NestedReadonlyArray<Tail<T>>];
+
+interface ReadonlyBaseApplicationCommandOptionsData {
+  readonly name: string;
+  readonly description: string;
+  readonly required?: boolean;
+  readonly autocomplete?: never;
+}
+
+interface ReadonlyApplicationCommandNonOptionsData
+  extends ReadonlyBaseApplicationCommandOptionsData {
+  readonly type: CommandOptionNonChoiceResolvableType;
+}
+
+interface ReadonlyApplicationCommandChannelOptionData
+  extends ReadonlyBaseApplicationCommandOptionsData {
+  readonly type: CommandOptionChannelResolvableType;
+  readonly channelTypes?: ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>[];
+  readonly channel_types?: Exclude<ChannelTypes, ChannelTypes.UNKNOWN>[];
+}
+
+interface ReadonlyApplicationCommandChoicesData
+  extends Omit<ReadonlyBaseApplicationCommandOptionsData, 'autocomplete'> {
+  readonly type: CommandOptionChoiceResolvableType;
+  readonly choices?: ReadonlyArray<ApplicationCommandOptionChoice>;
+  readonly autocomplete?: false;
+}
+
+interface ReadonlyApplicationCommandAutocompleteOption
+  extends Omit<ReadonlyBaseApplicationCommandOptionsData, 'autocomplete'> {
+  readonly type:
+    | 'STRING'
+    | 'NUMBER'
+    | 'INTEGER'
+    | ApplicationCommandOptionTypes.STRING
+    | ApplicationCommandOptionTypes.NUMBER
+    | ApplicationCommandOptionTypes.INTEGER;
+  readonly autocomplete: true;
+}
+
+interface ReadonlyApplicationCommandNumericOptionData
+  extends ReadonlyBaseApplicationCommandOptionsData {
+  readonly type: CommandOptionNumericResolvableType;
+  readonly minValue?: number;
+  readonly min_value?: number;
+  readonly maxValue?: number;
+  readonly max_value?: number;
+}
+
+export type ReadonlyApplicationCommandOptionData =
+  | ReadonlyApplicationCommandNonOptionsData
+  | ReadonlyApplicationCommandChannelOptionData
+  | ReadonlyApplicationCommandChoicesData
+  | ReadonlyApplicationCommandAutocompleteOption
+  | ReadonlyApplicationCommandNumericOptionData;

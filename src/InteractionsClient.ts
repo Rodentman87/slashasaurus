@@ -3,6 +3,7 @@ import {
   ApplicationCommandManager,
   AutocompleteInteraction,
   Awaitable,
+  BaseCommandInteraction,
   ButtonInteraction,
   ChatInputApplicationCommandData,
   Client,
@@ -12,14 +13,18 @@ import {
   ContextMenuInteraction,
   GuildApplicationCommandManager,
   Interaction,
+  Message,
   MessageApplicationCommandData,
+  MessageComponentInteraction,
   SelectMenuInteraction,
+  TextBasedChannel,
   UserApplicationCommandData,
 } from 'discord.js';
 import path from 'path';
 import requireAll from 'require-all';
 import { ContextMenuBase } from './ContextMenuBase';
 import { Pipeline, Middleware } from './MiddlewarePipeline';
+import { Page, pageComponentRowsToComponents } from './Page';
 import {
   SlashCommand,
   CommandRunFunction,
@@ -34,7 +39,7 @@ interface IntercationsClientEvents extends ClientEvents {
   autocomplete: [interaction: AutocompleteInteraction];
 }
 
-export declare interface InteractionsClient extends Client {
+export declare interface InteractionsClient extends Client<true> {
   on<K extends keyof IntercationsClientEvents>(
     event: K,
     listener: (...args: IntercationsClientEvents[K]) => Awaitable<void>
@@ -84,14 +89,22 @@ export interface Logger {
   error: LogFn;
 }
 
-export class InteractionsClient extends Client {
-  commandMap = new Map<string, SlashCommand<any>>();
+interface PageCacheValue {
+  page: Page;
+  message: Message | MessageComponentInteraction | BaseCommandInteraction;
+}
+
+// TODO: Figure out state serialization in case a message needs to leave cache or the bot shuts down suddenly
+export class InteractionsClient extends Client<true> {
+  commandMap = new Map<string, SlashCommand<this>>();
   userContextMenuMap = new Map<string, ContextMenuBase>();
   messageContextMenuMap = new Map<string, ContextMenuBase>();
   logger: Logger;
   devServerId: string;
   chatCommandMiddleware: Pipeline<CommandRunFunction<readonly [], this>>;
   autocompleteMiddleware: Pipeline<AutocompleteFunction<readonly [], this>>;
+
+  activePages: Map<string, PageCacheValue>;
 
   constructor(djsOptions: ClientOptions, options: InteractionsClientOptions) {
     super(djsOptions);
@@ -100,6 +113,7 @@ export class InteractionsClient extends Client {
     this.on('interactionCreate', this.handleInteractionEvent);
     this.chatCommandMiddleware = new Pipeline();
     this.autocompleteMiddleware = new Pipeline();
+    this.activePages = new Map();
   }
 
   /**
@@ -263,8 +277,14 @@ export class InteractionsClient extends Client {
       this.handleCommand(interaction);
       this.emit('commandRun', interaction);
     } else if (interaction.isButton()) {
+      if (interaction.customId.startsWith('~')) {
+        this.handlePageButton(interaction);
+      }
       this.emit('buttonPressed', interaction);
     } else if (interaction.isSelectMenu()) {
+      if (interaction.customId.startsWith('~')) {
+        this.handlePageSelect(interaction);
+      }
       this.emit('selectChanged', interaction);
     } else if (interaction.isContextMenu()) {
       this.handleContextMenu(interaction);
@@ -353,6 +373,113 @@ export class InteractionsClient extends Client {
     } else {
       this.logger.info(`Running context command ${commandName}`);
       command.run(interaction, this);
+    }
+  }
+
+  private async handlePageButton(interaction: ButtonInteraction) {
+    const { page } = this.activePages.get(interaction.message.id) ?? {};
+    if (!page) {
+      // TODO: Handle loading uncached pages
+      throw new Error(
+        'Getting button press from uncached page, we need to load it'
+      );
+    }
+    page.handleId(interaction.customId.split(';')[1], interaction);
+  }
+
+  private async handlePageSelect(interaction: SelectMenuInteraction) {
+    const { page } = this.activePages.get(interaction.message.id) ?? {};
+    if (!page) {
+      // TODO: Handle loading uncached pages
+      throw new Error(
+        'Getting button press from uncached page, we need to load it'
+      );
+    }
+    page.handleId(interaction.customId.split(';')[1], interaction);
+  }
+
+  async replyToInteractionWithPage(
+    page: Page,
+    interaction: MessageComponentInteraction | BaseCommandInteraction,
+    ephemeral: boolean
+  ) {
+    const messageOptions = page.render();
+    if (ephemeral) {
+      // We need to save the interaction instead since it doesn't return a message we can edit
+      const message = await interaction.reply({
+        ...messageOptions,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : undefined,
+        ephemeral: true,
+        fetchReply: true,
+      });
+      page.messsageId = message.id;
+      this.activePages.set(message.id, {
+        message: interaction,
+        page,
+      });
+    } else {
+      const message = await interaction.reply({
+        ...messageOptions,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : undefined,
+        fetchReply: true,
+      });
+      page.messsageId = message.id;
+      this.activePages.set(message.id, {
+        message: message as Message,
+        page,
+      });
+    }
+  }
+
+  async sendPageToChannel(page: Page, channel: TextBasedChannel) {
+    const messageOptions = page.render();
+    const message = await channel.send({
+      ...messageOptions,
+      components: messageOptions.components
+        ? pageComponentRowsToComponents(messageOptions.components, page)
+        : undefined,
+    });
+    page.messsageId = message.id;
+    this.activePages.set(message.id, {
+      message,
+      page,
+    });
+  }
+
+  async updatePage(page: Page, newState: any) {
+    if (!page.messsageId)
+      throw new Error('You cannot update a page before it has been sent');
+    page.state = newState;
+    const messageOptions = page.render();
+    const { message } = this.activePages.get(page.messsageId) ?? {};
+    if (!message) {
+      // TODO: Deal with pages that aren't in the active pages but are somehow still referenced
+      throw new Error(
+        "Tried to update a page that isn't currently loaded, make sure you aren't retaining a reference to a page for a long period of time"
+      );
+    }
+    if (message instanceof Message) {
+      if (!message.editable) {
+        // This page can't be updated, likely because the bot can no longer see the channel, or it's in a locked thread
+        return;
+      }
+      await message.edit({
+        ...messageOptions,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : undefined,
+      });
+    } else {
+      await message.editReply({
+        ...messageOptions,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : undefined,
+      });
     }
   }
 }
