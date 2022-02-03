@@ -16,7 +16,7 @@ import {
   User,
 } from 'discord.js';
 import { MessageButtonStyles } from 'discord.js/typings/enums';
-import { InteractionsClient } from './InteractionsClient';
+import { SlashasaurusClient } from './SlashasaurusClient';
 
 interface SerializedObject {
   type: string;
@@ -78,24 +78,20 @@ export interface RenderedPage
   components?: PageComponentRows;
 }
 
-export interface Page<C = InteractionsClient, P = {}, S = {}> {
-  constructor(props: P, client: C): Page<C, P, S>;
+export interface Page<P = {}, S = {}> {
+  constructor(props: P, client: SlashasaurusClient): Page<P, S>;
   render(): RenderedPage;
 }
-export abstract class Page<
-  C extends InteractionsClient = InteractionsClient,
-  P = {},
-  S = {}
-> {
+export abstract class Page<P = {}, S = {}> {
   state: Readonly<S>;
   readonly props: Readonly<P>;
-  readonly client: C;
+  readonly client: SlashasaurusClient;
   handlers: Map<string, Function>;
   nextId: number;
   messsageId: string | null;
   pageId: string;
 
-  constructor(pageId: string, props: P, client: C) {
+  constructor(pageId: string, props: P, client: SlashasaurusClient) {
     this.props = props;
     this.messsageId = null;
     this.pageId = pageId;

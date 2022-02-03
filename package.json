@@ -1,7 +1,8 @@
 {
-  "name": "slash-command-lib",
-  "version": "0.0.1",
+  "name": "slashasaurus",
+  "version": "0.1.0",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "license": "MIT",
   "scripts": {
     "prebuild": "rimraf ./dist",
@@ -9,18 +10,12 @@
   },
   "devDependencies": {
     "@types/node": "^16.4.13",
-    "@types/pino": "^6.3.11",
-    "@types/require-all": "^3.0.3",
     "discord.js": "^13.3.1",
     "prettier": "^2.3.2",
     "rimraf": "^3.0.2",
-    "slash-commands": "^1.5.0",
     "typescript": "4.5.4"
   },
   "peerDependencies": {
     "discord.js": "^13.3.1"
-  },
-  "dependencies": {
-    "require-all": "^3.0.0"
   }
 }
