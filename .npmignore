@@ -1,3 +1,4 @@
 src/
 .prettierrc
 .tool-versions
+tsconfig.json
