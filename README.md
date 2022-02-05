@@ -356,8 +356,8 @@ my-bot
 │     	 ├─ ping.ts
 │     	 ├─ longsurvey.ts
 │     	 ├─ role
-│        │	├─ add.ts
-│        │	└─ remove.ts
+│        │  ├─ add.ts
+│        │  └─ remove.ts
 │        │
 │     	 └─ survey.ts
 │
@@ -378,9 +378,9 @@ my-bot
 │     	 ├─ ping.ts
 │     	 ├─ longsurvey.ts
 │     	 ├─ role
-│        │	├─ _meta.ts
-│        │	├─ add.ts
-│        │	└─ remove.ts
+│        │  ├─ _meta.ts
+│        │  ├─ add.ts
+│        │  └─ remove.ts
 │        │
 │     	 └─ survey.ts
 │
@@ -412,15 +412,15 @@ my-bot
 │     ├─ chat
 │     │  ├─ hello.ts
 │     │	 ├─ ping.ts
-│    	│  ├─ longsurvey.ts
+│     │  ├─ longsurvey.ts
 │     │	 ├─ role
-│     │  │	├─ _meta.ts
-│     │  │	├─ add.ts
-│     │  │	└─ remove.ts
+│     │  │  ├─ _meta.ts
+│     │  │  ├─ add.ts
+│     │  │  └─ remove.ts
 │     │  │
 │     │	 └─ survey.ts
-│			│
-|			└─ message
+│     │
+|     └─ message
 │        └─ mock.ts
 │
 ├─ tsconfig.json
