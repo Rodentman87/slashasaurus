@@ -17,7 +17,8 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 ## Table of Contents
 
 - [Installation](#installation)
-- [Latest Changelog](#latest-changelog)
+- [Latest Changelogs](#latest-changelogs)
+  - [0.2.0](#020)
   - [0.1.0](#010)
 - [Usage](#usage)
 - [Creating your first commands](#creating-your-first-commands)
@@ -26,6 +27,10 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
   - [A Command With Autocomplete](#a-command-with-autocomplete)
   - [A Command With Subcommands](#a-command-with-subcommands)
   - [Creating a Context Menu Command](#creating-a-context-menu-command)
+- [Pages](#pages)
+  - [Our First Page](#our-first-page)
+  - [Where to go from here?](#where-to-go-from-here-)
+- [Conclusion](#conclusion)
 
 ## Installation
 
@@ -41,7 +46,11 @@ yarn add discord.js slashasaurus
 
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
 
-## Latest Changelog
+## Latest Changelogs
+
+### 0.2.0
+
+Pages are ready to be used. They'll take a little bit to get used to, but they're very powerful. Keep in mind, slashasaurus is still in beta and interfaces may change a bit before it's stable.
 
 ### 0.1.0
 
@@ -455,5 +464,321 @@ export default new MessageCommand(
 ```
 
 Here we make a MessageCommand and export it as default. All we need to do is give it a name and a run handler and we're all good to go!
+
+## Pages
+
+Pages are a new way to think about message components. Right now you probably handle them thinking about what each button or select does and trying to write handlers and crazy stuff with custom ids. Pages take that method and turn it on it's head. Instead of thinking about individual components, you think about the message as a whole. And rather than needing to track potentially a dozen different components with custom ids on a message, you just pass the handlers you want and slashasaurus handles the rest.
+
+**Before we get started, though, a couple things to think about:**
+
+One, Pages are _not_ recommended for every use case of message components. Pages do take up a bit of memory and can be slower than just a normal handler. Something like button roles would _not_ be the ideal use of Pages, it's a very static message that doesn't need to store much state. The ideal use for Pages is something like search results where there's potentially multiple pages of results and users can scroll through them. Or maybe something like an initial setup where a user will go through a few sets of settings to get things configured.
+
+Two, old messages have _much_ higher ratelimits on being updated. If you have a highly interactive page that updates often, you may want to prompt the user to re-open the page (or resend the Page automatically) if the message is old when they interact with it.
+
+Let's take a look at a couple examples to see what we can do with Pages.
+
+### Our First Page
+
+Before we can begin there's a little bit of setup we need to do. First, we need to give slashasaurus a way to store the state of these pages long term. We do this by passing a couple new function into the client constructor, `storePageState` and `getPageState`. These two functions will interface with _any_ persistent storage system you want. This could be redis, postgres, even a JSON file (although that's not recommended).
+
+```ts
+// index.ts
+const client = new SlashasaurusClient(
+  {
+    // discord.js options...
+  },
+  {
+    // other slashasaurus options...
+    storePageState: async (messageId, pageId, stateString, messageData) => {
+      storage.store(messageId, {
+        pageId,
+        stateString,
+        messageData,
+      });
+    },
+    getPageState: async (messageId) => {
+      return storage.get(messageId);
+    },
+  }
+);
+```
+
+The `storePageState` function receives 4 props: `messageId`, which will be used as the key, and 3 more strings which aren't important to know right now, but all need to be stored and retreived by this messageId. The `getPageState` function need to return the three strings as an object.
+
+We can also pass a `pageTtl` to change how long Pages will stay in the cache.
+
+Next, we need to add a new folder to store all our pages in. These pages will be registered with the client, just like our commands, so that they can be used to load pages from the persistent storage.
+
+```
+my-bot
+├─ src
+│  ├─ index.ts
+│  ├─ commands
+│  └─ pages
+│
+├─ tsconfig.json
+├─ README.md
+└─ package.json
+```
+
+Then we'll tell the client to register the pages from that folder.
+
+```ts
+// index.ts...
+client.registerPagesFrom(path.join(__dirname, '/pages'));
+```
+
+Now we'll move on to actually making our first Page.
+
+This one will be a little simple an useless, just as a way to get the hang of things before we move on to something more complex. We'll make a simple Page with just one button and a little bit of state.
+
+Before you begin working on your Page you'll need to think about what your props and your state. The props for this first page will be nothing, since no matter how the page gets created there wont need to be anything passed in. We'll place this in a new file in the pages folder.
+
+```
+my-bot
+├─ src
+│  ├─ index.ts
+│  ├─ commands
+│  └─ pages
+│			└─ toggle.ts
+│
+├─ tsconfig.json
+├─ README.md
+└─ package.json
+```
+
+In here we'll put the class for this page as well as a couple other things. We'll start by modeling how the state of our Page will look. In this case we only need one property in our state and that's whether or not the toggle is on or off. So we'll declare a new interface with this property.
+
+```ts
+// toggle.ts
+interface TogglePageState {
+  on: boolean;
+}
+```
+
+Now we need to get started with writing our actual Page. If you've used React before, this may seem a little familiar. We'll start by exporting a new class as default. This class will extend Page, and as part of the generics we'll pass `{}` for our props since we don't have any, and then we'll pass our interface we just made for the state.
+
+```ts
+// toggle.ts
+import { Page } from 'slashasaurus';
+
+interface TogglePageState {
+  on: boolean;
+}
+
+export default class TogglePage extends Page<{}, TogglePageState> {}
+```
+
+Now we need to setup the constructor so that we can set the initial state of the Page. Here we'll take in the props of our Page and pass them to the `super` call, then we'll set the initial state of our page by assigning to `this.state`.
+
+```ts
+// toggle.ts
+import { Page } from 'slashasaurus';
+
+interface TogglePageState {
+  on: boolean;
+}
+
+export default class TogglePage extends Page<{}, TogglePageState> {
+  constructor(props: {}) {
+    super(props);
+    this.state = {
+      on: false,
+    };
+  }
+}
+```
+
+Next we'll need to give our Page an ID. This will be used to get the Page from our registry whenever it needs to be loaded from the long-term storage. To do this we need to declare a static property on the class named `pageId` and assign it a _unique_ id.
+
+```ts
+// toggle.ts
+// ...
+export default class TogglePage extends Page<{}, TogglePageState> {
+  static pageId = 'toggle';
+
+  constructor(props: {}) {
+    super(props);
+    this.state = {
+      on: false,
+    };
+  }
+}
+```
+
+> ⚠️ Be careful with the pageId you use for your Page. This will be how slashasaurus looks things up _forever_, so if you re-use a pageId later down the line you may end up with some unexpected data coming through to this new page.
+
+Ok, so this is definitely a bit of setup here before we can finish this Page, but it's all important and we have just one thing left to do. We need to have a way to serialize the state of this Page so that it can be stored easily. First we'll define our `serializeState` function inside the Page.
+
+```ts
+// toggle.ts
+// ...
+export default class TogglePage extends Page<{}, TogglePageState> {
+  static pageId = 'toggle';
+
+  constructor(props: {}) {
+    super(props);
+    this.state = {
+      on: false,
+    };
+  }
+
+  serializeState() {
+    return JSON.stringify(this.state);
+  }
+}
+```
+
+In this case it's relatively simple, we can just call JSON.stringify on our state. If you have something more complex like users, channels, guilds, or something from your database in the state, you can instead store just the id of the object and when it gets deserialized, you can pull the object from djs or the database.
+
+> ⚠️ This function will also need to serialize the props, if your page has any, so that they'll also be accessible when deserializing this Page.
+
+Now we need a way to deserialize the Page. We'll export a new function named `deserializeState`. You can type this with `DeserializeStateFn` to get the autocomplete while you work on this.
+
+```ts
+// toggle.ts
+import { DeserializeStateFn, Page } from 'slashasaurus';
+
+// ...
+
+export const deserializeState: DeserializeStateFn<{}, TogglePageState> = (
+  serializedState
+) => {
+  const state = JSON.parse(serializedState);
+  return {
+    props: {},
+    state,
+  };
+};
+```
+
+Here it's also pretty simple to deserialize our state using just `JSON.parse`. The first prop passed into this function is the string that was returned earlier by the `serializeState` function. There's also a second prop, `interaction` which is whatever interaction triggered this page to "wake up," if there was one.
+
+Sometimes you may need to update how your Page works. This means that some older versions of this Page may still exist. If those older Pages get woken up, this function may receive an older version of the state, so keep that in mind when you write this. There's a couple ways you can handle this:
+
+1. Reply to the interaction, letting the user know how to re-open this Page using whatever command, button press, etc.
+   - **This is not the recommended option**, but it can be used as a last resort. If you do this, return an empty object and slashasaurus will delete the original Page message, or edit it to say it's closed and remove all components if it was an ephemeral message.
+2. Attempt to convert the older state to the newer version of the state.
+   - **This is the recommended option.** If it's something simple where you've added something new to the state, you can try to provide a default value. If something has changed about the structure of the state, you can try to convert it to the newer structure.
+   - If the message's content, components, or embeds change, slashasaurus will automatically update the old message to the new version, then prompt the user to redo their action. This way there wont be any unintended outcomes because the user pressed a button that may be handled differently now.
+
+Now that we've finish all the setup, we can finally get to making our actual Page content.
+
+Let's start by importing `PageInteractableButton` from slashasaurus. This is specifically for handling buttons that users can click. If you want a link button you can import `PageLinkButton` instead.
+
+```ts
+// toggle.ts
+import { DeserializeStateFn, Page, PageInteractableButton } from 'slashasaurus';
+```
+
+Now we'll create our `render` function for our Page. This should return a `RenderedPage` which slashaurus will send. In the render function we'll return our new message with the button to toggle the state. A couple things to keep in mind: `render` should _always_ return the same message if the `props` and `state` are the same. Keep in mind the render function may _also_ be called when you aren't always expecting it to. If you need randomness in your message then you should create the random value and pass it as a prop or set it in the state.
+
+```ts
+// toggle.ts
+import {
+  DeserializeStateFn,
+  Page,
+  PageInteractableButton,
+  RenderedPage,
+} from 'slashasaurus';
+
+export default class TogglePage extends Page<{}, TogglePageState> {
+  render(): RenderedPage {
+    return {
+      content: `The lights are currently: ${this.state.on ? 'on' : 'off'}`,
+      components: [
+        [
+          new PageInteractableButton({
+            handler: this.toggle, // We'll write this function in a second
+            label: 'Toggle the lights',
+            style: 'PRIMARY',
+          }),
+        ],
+      ],
+    };
+  }
+}
+```
+
+Now we just need to create the handler for our button.
+
+```ts
+// toggle.ts
+export default class TogglePage extends Page<{}, TogglePageState> {
+  constructor(props: {}) {
+    super(props);
+    this.toggle = this.toggle.bind(this);
+    this.state = {
+      on: false,
+    };
+  }
+
+  // ...
+
+  async toggle(interaction: ButtonInteraction) {
+    interaction.deferUpdate();
+    this.setState({
+      on: !this.state.on,
+    });
+  }
+
+  // ...
+}
+```
+
+In this case we will bind this function with the Page as `this`. If you don't bind it, it can sometimes cause some weird things to happen if you try to use `this` inside your function. The function will be passed one arg, the interaction that triggered it. Here we'll do a `deferUpdate()` on the interaction so that the loading spinner on the button goes away. Then we call `this.setState()` with our new state for this Page. When we call this, slashaurus will automatically set the new state on the page, update the message, and store the new state in your storage (This is done on every state update in case the bot shuts down unexpectedly).
+
+> ⚠️ Do _NOT_ mutate the current state with something like
+>
+> ```ts
+> this.state = {
+>   on: false,
+> };
+> ```
+>
+> If you change the state like this, slashasaurus will not know that the state changed and will not automatically update the message or store the new state. This can cause the Page's state to get decoupled and lead to weird bugs that are hard to track down.
+
+That's it! This Page is now ready to be used. Let's create a new slash command that will give this user the page.
+
+```
+my-bot
+├─ src
+│  ├─ index.ts
+│  └─ commands
+│     └─ chat
+│     	 └─ lights.ts
+│
+├─ tsconfig.json
+├─ README.md
+└─ package.json
+```
+
+```ts
+// lights.ts
+import { SlashCommand } from 'slashasaurus';
+import TogglePage from '../../pages/TogglePage';
+
+export default new SlashCommand(
+  {
+    name: 'lights',
+    description: 'Gives you access to the light switch',
+    options: [],
+  },
+  {
+    run: async (interaction, _, _options) => {
+      const page = new TogglePage({});
+      page.sendAsReply(interaction);
+    },
+  }
+);
+```
+
+Here we create a new instance of TogglePage and call `sendAsReply` to reply to the interaction with our brand new Page. You can optionally pass `true` as the second argument to send it as an ephemeral reply. Now this is all ready to go! If you start your bot and run the command, the Page should be sent as the reply and you can click your brand new button.
+
+### Where to go from here?
+
+When looking at creating more complex pages, make sure to plan ahead. If you need to make database lookups, do those outside of the constructor and instead pass the object as a prop. If your page starts to get very complex you can try splitting it into multiple pages and use `this.transitionTo(newPage)` to switch out the Page with a new one. If you're worried about storage concerns with page state, you can listen to `messageDelete` events and tell your storage to remove data related to pages on those messages.
+
+## Conclusion
 
 That's it for this (admittedly long) "quick" start guide. If you have any further questions, you can ask in the discord server linked at the top of this README.

@@ -5,14 +5,17 @@ import {
   AutocompleteInteraction,
   Awaitable,
   BaseCommandInteraction,
+  BaseGuildTextChannel,
   ButtonInteraction,
   Client,
   ClientEvents,
   ClientOptions,
   CommandInteraction,
   ContextMenuInteraction,
+  DMChannel,
   GuildApplicationCommandManager,
   Interaction,
+  InteractionWebhook,
   Message,
   MessageComponentInteraction,
   SelectMenuInteraction,
@@ -28,13 +31,22 @@ import {
   UserCommand,
 } from './ContextMenuBase';
 import { Pipeline, Middleware } from './MiddlewarePipeline';
-import { Page, pageComponentRowsToComponents } from './Page';
+import {
+  compareMessages,
+  DEFAULT_PAGE_ID,
+  DeserializeStateFn,
+  isPage,
+  Page,
+  pageComponentRowsToComponents,
+  PageInteractionReplyMessage,
+} from './Page';
 import {
   SlashCommand,
   CommandRunFunction,
   AutocompleteFunction,
   isChatCommand,
 } from './SlashCommandBase';
+import { PingableTimedCache } from './PingableTimedCache';
 
 interface SlashasaurusClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
@@ -70,6 +82,29 @@ export declare interface SlashasaurusClient extends Client<true> {
   removeAllListeners<K extends keyof SlashasaurusClientEvents>(event?: K): this;
 }
 
+interface MessageData {
+  guildId: string;
+  channelId: string;
+  messageId: string;
+}
+
+interface InteractionMessageData {
+  webhookToken: string;
+  messageId: string;
+}
+
+type StorePageStateFn = (
+  messageId: string,
+  pageId: string,
+  state: string,
+  messageData: string
+) => Promise<void>;
+type GetPageStateFn = (messageId: string) => Promise<{
+  pageId: string;
+  stateString: string;
+  messageData: string;
+}>;
+
 export interface SlashasaurusClientOptions {
   /**
    * You can pass any logger compatible with [pino](https://getpino.io/)
@@ -82,6 +117,24 @@ export interface SlashasaurusClientOptions {
    * in development
    */
   devServerId: string;
+
+  /**
+   * This function is used to persistently store the page state in case
+   * it needs to leave the cache or the bot suddenly shuts down.
+   */
+  storePageState?: StorePageStateFn;
+
+  /**
+   * This function will retreive the page from your persistent storage
+   * when the page is "woken up."
+   */
+  getPageState?: GetPageStateFn;
+
+  /**
+   * The amount of time (in ms) that pages will stay in the cache after they
+   * were last interacted with. The default is 30 seconds.
+   */
+  pageTtl?: number;
 }
 
 interface LogFn {
@@ -95,42 +148,57 @@ export interface Logger {
   error: LogFn;
 }
 
-interface PageCacheValue {
-  page: Page;
-  message: Message | MessageComponentInteraction | BaseCommandInteraction;
+interface PageMapStorage {
+  page: Page['constructor'];
+  deserialize: DeserializeStateFn;
 }
 
-// TODO: Figure out page state serialization in case a message needs to leave cache or the bot shuts down suddenly
-// - I need a page registry for recreating a page during deserialization
-// - I need to serialize the page state the first time it is sent
-// - I need to update that saved state when setState is called
-// - I need to setup cache sweeping for the pages
-// - I need to make a serialization function
-// - I need to make a de-serialization function
-// If I just serialize the page's state and props then I don't need to bother with serializing handlers
+async function defaultPageStore() {
+  throw new Error(
+    `You must implement storePageState and getPageState in order to use pages`
+  );
+}
+
+async function defaultPageGet(): Promise<{
+  pageId: string;
+  stateString: string;
+  messageData: string;
+}> {
+  throw new Error(
+    `You must implement storePageState and getPageState in order to use pages`
+  );
+  return {
+    pageId: 'error',
+    messageData: 'error',
+    stateString: '',
+  };
+}
+
 export class SlashasaurusClient extends Client<true> {
-  commandMap = new Map<string, SlashCommand<any>>();
-  userContextMenuMap = new Map<string, UserCommand>();
-  messageContextMenuMap = new Map<string, MessageCommand>();
+  private commandMap = new Map<string, SlashCommand<any>>();
+  private userContextMenuMap = new Map<string, UserCommand>();
+  private messageContextMenuMap = new Map<string, MessageCommand>();
+  private pageMap = new Map<string, PageMapStorage>();
   logger?: Logger;
   devServerId: string;
-  chatCommandMiddleware: Pipeline<CommandRunFunction<[]>>;
-  autocompleteMiddleware: Pipeline<AutocompleteFunction<[]>>;
-  contextMenuMiddleware: Pipeline<
+  chatCommandMiddleware = new Pipeline<CommandRunFunction<[]>>();
+  autocompleteMiddleware = new Pipeline<AutocompleteFunction<[]>>();
+  contextMenuMiddleware = new Pipeline<
     ContextMenuHandlerType<'MESSAGE'> | ContextMenuHandlerType<'USER'>
-  >;
+  >();
 
-  activePages: Map<string, PageCacheValue>;
+  activePages: PingableTimedCache<Page>;
+  storePageState: StorePageStateFn;
+  getPageState: GetPageStateFn;
 
   constructor(djsOptions: ClientOptions, options: SlashasaurusClientOptions) {
     super(djsOptions);
     this.logger = options.logger;
     this.devServerId = options.devServerId;
+    this.activePages = new PingableTimedCache(options.pageTtl);
+    this.storePageState = options.storePageState ?? defaultPageStore;
+    this.getPageState = options.getPageState ?? defaultPageGet;
     this.on('interactionCreate', this.handleInteractionEvent);
-    this.chatCommandMiddleware = new Pipeline();
-    this.autocompleteMiddleware = new Pipeline();
-    this.contextMenuMiddleware = new Pipeline();
-    this.activePages = new Map();
   }
 
   /**
@@ -138,8 +206,8 @@ export class SlashasaurusClient extends Client<true> {
    *
    * @param folderPath The relative path to the folder
    */
-  // TODO: and also guild specific commands
-  // guild commands will be a 0.2 thing probably tbh
+  // TODO: guild specific commands
+  // guild commands will be a 0.3 thing probably tbh
   async registerCommandsFrom(
     folderPath: string,
     registerTo: 'global' | 'dev' | 'none'
@@ -231,7 +299,9 @@ export class SlashasaurusClient extends Client<true> {
           commandData.push(command.commandInfo);
         }
       } else {
-        throw new Error('');
+        throw new Error(
+          `Found folder at ${filePath}, context menu commands cannot have subcommands`
+        );
       }
     }
 
@@ -270,7 +340,9 @@ export class SlashasaurusClient extends Client<true> {
           commandData.push(command.commandInfo);
         }
       } else {
-        throw new Error('');
+        throw new Error(
+          `Found folder at ${filePath}, context menu commands cannot have subcommands`
+        );
       }
     }
 
@@ -462,7 +534,66 @@ export class SlashasaurusClient extends Client<true> {
     };
   }
 
-  handleInteractionEvent(interaction: Interaction) {
+  async registerPagesFrom(path: string) {
+    const topLevel = await readdir(path);
+
+    for (const folderOrFile of topLevel) {
+      const filePath = join(path, folderOrFile);
+      if ((await stat(filePath)).isFile()) {
+        if (folderOrFile.match(JSFileRegex)) {
+          // This is a js file
+          const data = await import(filePath);
+          if (!data.default) {
+            throw new Error(
+              `Expected a default export in file ${join(
+                path,
+                folderOrFile
+              )} but didn't find one`
+            );
+          }
+          const page = data.default;
+          if (!isPage(page)) {
+            throw new Error(
+              `Expected the default export in file ${join(
+                path,
+                folderOrFile
+              )} to be a Page`
+            );
+          }
+          // @ts-expect-error messing with statics is fun
+          if (page.pageId === DEFAULT_PAGE_ID) {
+            throw new Error(
+              `The page exported in ${join(
+                path,
+                folderOrFile
+              )} does not have a static pageId set.`
+            );
+          }
+          // @ts-expect-error but not very functional
+          page._client = this;
+          if (!data.deserializeState) {
+            throw new Error(
+              `Expected an export named "deserializeState" in file ${join(
+                path,
+                folderOrFile
+              )} but didn't find one`
+            );
+          }
+          // @ts-expect-error it does exist :sobbing:
+          this.pageMap.set(page.pageId, {
+            page,
+            deserialize: data.deserializeState,
+          });
+        }
+      } else {
+        throw new Error(
+          `Found folder in pages directory ${join(path, folderOrFile)}`
+        );
+      }
+    }
+  }
+
+  private handleInteractionEvent(interaction: Interaction) {
     this.logger?.debug(interaction);
     if (interaction.isCommand()) {
       // This is a command, pass it to our command handlers
@@ -580,23 +711,57 @@ export class SlashasaurusClient extends Client<true> {
   }
 
   private async handlePageButton(interaction: ButtonInteraction) {
-    const { page } = this.activePages.get(interaction.message.id) ?? {};
+    let page = this.activePages.get(interaction.message.id);
     if (!page) {
-      // TODO: Handle loading uncached pages
-      throw new Error(
-        'Getting button press from uncached page, we need to load it'
-      );
+      page = await this.getPageFromMessage(interaction.message.id, interaction);
+      if (!page) {
+        return;
+      }
+      this.activePages.set(interaction.message.id, page);
+      const renderedPage = page.render();
+      if (!compareMessages(interaction.message, renderedPage)) {
+        await interaction.update({
+          ...renderedPage,
+          components: renderedPage.components
+            ? pageComponentRowsToComponents(renderedPage.components, page)
+            : undefined,
+          fetchReply: true,
+        });
+        interaction.followUp({
+          content:
+            "An older version of this page was stored, it's been updated. Click the button you want again",
+          ephemeral: true,
+        });
+        return;
+      }
     }
     page.handleId(interaction.customId.split(';')[1], interaction);
   }
 
   private async handlePageSelect(interaction: SelectMenuInteraction) {
-    const { page } = this.activePages.get(interaction.message.id) ?? {};
+    let page = this.activePages.get(interaction.message.id);
     if (!page) {
-      // TODO: Handle loading uncached pages
-      throw new Error(
-        'Getting button press from uncached page, we need to load it'
-      );
+      page = await this.getPageFromMessage(interaction.message.id, interaction);
+      if (!page) {
+        return;
+      }
+      this.activePages.set(interaction.message.id, page);
+      const renderedPage = page.render();
+      if (!compareMessages(interaction.message, renderedPage)) {
+        await interaction.update({
+          ...renderedPage,
+          components: renderedPage.components
+            ? pageComponentRowsToComponents(renderedPage.components, page)
+            : undefined,
+          fetchReply: true,
+        });
+        interaction.followUp({
+          content:
+            "An older version of this page was stored, it's been updated. Click the button you want again",
+          ephemeral: true,
+        });
+        return;
+      }
     }
     page.handleId(interaction.customId.split(';')[1], interaction);
   }
@@ -617,11 +782,19 @@ export class SlashasaurusClient extends Client<true> {
         ephemeral: true,
         fetchReply: true,
       });
-      page.messsageId = message.id;
-      this.activePages.set(message.id, {
-        message: interaction,
-        page,
-      });
+      page.message = new PageInteractionReplyMessage(
+        interaction.webhook,
+        message.id
+      );
+      const state = await page.serializeState();
+      this.storePageState(
+        message.id,
+        // @ts-expect-error gonna complain about pageId on the constructor again
+        page.constructor.pageId,
+        state,
+        messageToMessageData(page.message)
+      );
+      this.activePages.set(message.id, page);
     } else {
       const message = await interaction.reply({
         ...messageOptions,
@@ -630,11 +803,23 @@ export class SlashasaurusClient extends Client<true> {
           : undefined,
         fetchReply: true,
       });
-      page.messsageId = message.id;
-      this.activePages.set(message.id, {
-        message: message as Message,
-        page,
-      });
+      if (message instanceof Message) {
+        page.message = message;
+      } else {
+        page.message = new PageInteractionReplyMessage(
+          interaction.webhook,
+          message.id
+        );
+      }
+      const state = await page.serializeState();
+      this.storePageState(
+        message.id,
+        // @ts-expect-error gonna complain about pageId on the constructor again
+        page.constructor.pageId,
+        state,
+        messageToMessageData(page.message)
+      );
+      this.activePages.set(message.id, page);
     }
   }
 
@@ -646,42 +831,139 @@ export class SlashasaurusClient extends Client<true> {
         ? pageComponentRowsToComponents(messageOptions.components, page)
         : undefined,
     });
-    page.messsageId = message.id;
-    this.activePages.set(message.id, {
-      message,
-      page,
-    });
+    page.message = message;
+    const state = await page.serializeState();
+    this.storePageState(
+      message.id,
+      // @ts-expect-error gonna complain about pageId on the constructor again
+      page.constructor.pageId,
+      state,
+      messageToMessageData(page.message)
+    );
+    this.activePages.set(message.id, page);
   }
 
   async updatePage(page: Page, newState: any) {
-    if (!page.messsageId)
+    if (!page.message)
       throw new Error('You cannot update a page before it has been sent');
     page.state = newState;
     const messageOptions = page.render();
-    const { message } = this.activePages.get(page.messsageId) ?? {};
-    if (!message) {
-      throw new Error(
-        "Tried to update a page that isn't currently loaded, make sure you aren't retaining a reference to a page for a long period of time"
-      );
-    }
-    if (message instanceof Message) {
-      if (!message.editable) {
-        // This page can't be updated, likely because the bot can no longer see the channel, or it's in a locked thread
+    const { message } = page;
+    await message.edit({
+      ...messageOptions,
+      components: messageOptions.components
+        ? pageComponentRowsToComponents(messageOptions.components, page)
+        : undefined,
+    });
+    const state = await page.serializeState();
+    this.activePages.set(message.id, page);
+    this.storePageState(
+      page.message instanceof Message ? page.message.id : page.message.id,
+      // @ts-expect-error gonna complain about pageId on the constructor again
+      page.constructor.pageId,
+      state,
+      messageToMessageData(page.message)
+    );
+  }
+
+  async getPageFromMessage(
+    messageOrId: Message | string,
+    interaction: MessageComponentInteraction | CommandInteraction
+  ) {
+    const id = typeof messageOrId === 'string' ? messageOrId : messageOrId.id;
+    const cachedPage = this.activePages.get(id);
+    if (!cachedPage) {
+      const { pageId, stateString, messageData } = await this.getPageState(id);
+      const message =
+        messageOrId instanceof Message
+          ? messageOrId
+          : await this.getMessage(JSON.parse(messageData));
+      if (!message)
+        throw new Error(
+          `Failed to load Page message. ${JSON.stringify(messageData)}`
+        );
+      const { page: pageConstructor, deserialize } =
+        this.pageMap.get(pageId) ?? {};
+      if (!pageConstructor || !deserialize)
+        throw new Error(
+          `A component tried to load a page type that isn't registered, ${pageId}`
+        );
+      const deserialized = deserialize(stateString, interaction);
+      if (!('props' in deserialized)) {
+        if (message instanceof Message) {
+          await message.delete();
+        } else {
+          await message.edit({
+            content: 'This page has been closed',
+            components: [],
+          });
+        }
         return;
       }
-      await message.edit({
-        ...messageOptions,
-        components: messageOptions.components
-          ? pageComponentRowsToComponents(messageOptions.components, page)
-          : undefined,
-      });
-    } else {
-      await message.editReply({
-        ...messageOptions,
-        components: messageOptions.components
-          ? pageComponentRowsToComponents(messageOptions.components, page)
-          : undefined,
-      });
+      const { props, state } = deserialized;
+      // @ts-expect-error will complain, but we know this is a constructor and JS will complain if we don't do `new`
+      const newPage: Page = new pageConstructor(props);
+      newPage.state = state;
+      newPage.message = message;
+      const rendered = newPage.render();
+      if (rendered.components)
+        pageComponentRowsToComponents(rendered.components, newPage);
+      this.activePages.set(message.id, newPage);
+      return newPage;
     }
+    return cachedPage;
+  }
+
+  private async getMessage(messageData: MessageData | InteractionMessageData) {
+    if ('guildId' in messageData) {
+      try {
+        if (messageData.guildId !== 'dm') {
+          const guild = await this.guilds.fetch(messageData.guildId);
+          const channel = await guild.channels.fetch(messageData.channelId);
+          if (!(channel instanceof BaseGuildTextChannel))
+            throw new Error(
+              `Channel for saved Page was not a text channel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
+            );
+          return channel.messages.fetch(messageData.messageId);
+        } else {
+          const channel = await this.channels.fetch(messageData.channelId);
+          if (!(channel instanceof DMChannel))
+            throw new Error(
+              `Channel for saved Page was not a DMChannel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
+            );
+        }
+      } catch (e) {
+        throw new Error(
+          `Tried to fetch a message the bot can no longer see: ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
+        );
+      }
+    } else {
+      return new PageInteractionReplyMessage(
+        new InteractionWebhook(
+          this,
+          this.application.id,
+          messageData.webhookToken
+        ),
+        messageData.messageId
+      );
+    }
+    return;
+  }
+}
+
+function messageToMessageData(
+  message: Message | PageInteractionReplyMessage
+): string {
+  if (message instanceof Message) {
+    return JSON.stringify({
+      messageId: message.id,
+      channelId: message.channelId,
+      guildId: message.guildId ?? 'dm',
+    });
+  } else {
+    return JSON.stringify({
+      webhookToken: message.webhook.token,
+      messageId: message.id,
+    });
   }
 }
