@@ -15,7 +15,7 @@ import {
   WebhookEditMessageOptions,
 } from 'discord.js';
 import { MessageButtonStyles } from 'discord.js/typings/enums';
-import { PageButton, PageSelect } from './PageComponents';
+import { PageActionRow, PageButton, PageSelect } from './PageComponents';
 import { SlashasaurusClient } from './SlashasaurusClient';
 
 interface SerializedObject {
@@ -33,9 +33,9 @@ type SerializableValue =
 export type PageButtonRow = PageButton[];
 export type PageSelectRow = [PageSelect];
 
-export type PageComponentRow = PageButtonRow | PageSelectRow;
+export type PageComponentArray = PageButtonRow | PageSelectRow;
 
-type PageComponentRows = PageComponentRow[];
+type PageComponentRows = (PageComponentArray | PageActionRow)[];
 
 export interface RenderedPage
   extends Omit<MessageOptions, 'nonce' | 'components'> {
@@ -189,15 +189,25 @@ export function pageComponentRowsToComponents(
   const pageId = page.constructor.pageId;
   return rows.map((row) => {
     const actionRow = new MessageActionRow();
-    row.forEach((component) => {
-      actionRow.addComponents(componentToDjsComponent(component, page, pageId));
-    });
+    if (row instanceof PageActionRow) {
+      row.children.forEach((component) => {
+        actionRow.addComponents(
+          componentToDjsComponent(component, page, pageId)
+        );
+      });
+    } else {
+      row.forEach((component) => {
+        actionRow.addComponents(
+          componentToDjsComponent(component, page, pageId)
+        );
+      });
+    }
     return actionRow;
   });
 }
 
 function componentToDjsComponent(
-  component: PageComponentRow[number],
+  component: PageComponentArray[number],
   page: Page,
   pageId: string
 ) {
@@ -229,8 +239,9 @@ export function compareMessages(
     // They both have components, lets compare them
     const componentsMatch = [...a.components].every((row, index) => {
       const bRow = b.components![index];
-      if (row.components.length !== bRow.length) return false;
-      return [...bRow].every((component, index) => {
+      const bChildren = bRow instanceof PageActionRow ? bRow.children : bRow;
+      if (row.components.length !== bChildren.length) return false;
+      return [...bChildren].every((component, index) => {
         return component.compareToComponent(row.components[index]);
       });
     });

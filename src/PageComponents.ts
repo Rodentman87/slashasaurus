@@ -31,6 +31,30 @@ interface ExportableToDjsComponent {
   toDjsComponent(id: string): MessageComponent;
 }
 
+export function createInteractable<P>(
+  component: new (props: P) => any | ((props: P) => any) | null,
+  props: P,
+  ...children: any[]
+) {
+  if (!component) return children;
+  return new component({ ...props, children });
+}
+
+type PageActionRowChild = PageButton | PageSelect;
+
+interface PageActionRowProps {
+  children?: PageActionRowChild | PageActionRowChild[];
+}
+
+export class PageActionRow {
+  children: PageActionRowChild[];
+
+  constructor({ children }: PageActionRowProps) {
+    if (Array.isArray(children)) this.children = children.flat();
+    else if (children) this.children = [children];
+  }
+}
+
 export type PageInteractableButtonOptions = {
   handler: (interaction: ButtonInteraction) => void;
   style?: NonLinkStyles;

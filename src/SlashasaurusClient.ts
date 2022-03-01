@@ -272,10 +272,18 @@ export class SlashasaurusClient extends Client<true> {
 
     const commandData: ApplicationCommandData[] = [];
 
+    this.logger?.debug(
+      `Loading user commands from folder, found ${topLevel.join(', ')}`
+    );
+
     for (const folderOrFile of topLevel) {
       const filePath = join(path, folderOrFile);
       if ((await stat(filePath)).isFile()) {
+        this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
         if (folderOrFile.match(JSFileRegex)) {
+          this.logger?.debug(
+            `Checking if file ${folderOrFile} contains a command`
+          );
           // This is a js file
           const data = await import(filePath);
           if (!data.default) {
@@ -297,6 +305,7 @@ export class SlashasaurusClient extends Client<true> {
           }
           this.userContextMenuMap.set(command.commandInfo.name, command);
           commandData.push(command.commandInfo);
+          this.logger?.debug(`Loaded user command ${command.commandInfo.name}`);
         }
       } else {
         throw new Error(
@@ -304,6 +313,8 @@ export class SlashasaurusClient extends Client<true> {
         );
       }
     }
+
+    this.logger?.debug(`Finished loading user commands from folder`);
 
     return commandData;
   }
@@ -313,10 +324,18 @@ export class SlashasaurusClient extends Client<true> {
 
     const commandData: ApplicationCommandData[] = [];
 
+    this.logger?.debug(
+      `Loading message commands from folder, found ${topLevel.join(', ')}`
+    );
+
     for (const folderOrFile of topLevel) {
       const filePath = join(path, folderOrFile);
       if ((await stat(filePath)).isFile()) {
+        this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
         if (folderOrFile.match(JSFileRegex)) {
+          this.logger?.debug(
+            `Checking if file ${folderOrFile} contains a command`
+          );
           // This is a js file
           const data = await import(filePath);
           if (!data.default) {
@@ -338,6 +357,9 @@ export class SlashasaurusClient extends Client<true> {
           }
           this.messageContextMenuMap.set(command.commandInfo.name, command);
           commandData.push(command.commandInfo);
+          this.logger?.debug(
+            `Loaded message command ${command.commandInfo.name}`
+          );
         }
       } else {
         throw new Error(
@@ -345,6 +367,8 @@ export class SlashasaurusClient extends Client<true> {
         );
       }
     }
+
+    this.logger?.debug(`Finished loading message commands from folder`);
 
     return commandData;
   }
@@ -354,10 +378,18 @@ export class SlashasaurusClient extends Client<true> {
 
     const commandData: ApplicationCommandData[] = [];
 
+    this.logger?.debug(
+      `Loading chat commands from folder, found ${topLevel.join(', ')}`
+    );
+
     for (const folderOrFile of topLevel) {
       const filePath = join(path, folderOrFile);
       if ((await stat(filePath)).isFile()) {
+        this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
         if (folderOrFile.match(JSFileRegex)) {
+          this.logger?.debug(
+            `Checking if file ${folderOrFile} contains a command`
+          );
           // This is a js file
           const data = await import(filePath);
           if (!data.default) {
@@ -368,6 +400,9 @@ export class SlashasaurusClient extends Client<true> {
               )} but didn't find one`
             );
           }
+          this.logger?.debug(
+            `Checking if default export of ${folderOrFile} is a command`
+          );
           const command = data.default;
           if (!isChatCommand(command)) {
             throw new Error(
@@ -377,8 +412,12 @@ export class SlashasaurusClient extends Client<true> {
               )} to be a SlashCommand`
             );
           }
+          this.logger?.debug(
+            `Adding command from ${folderOrFile} to command map`
+          );
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(command.commandInfo);
+          this.logger?.debug(`Loaded chat command ${command.commandInfo.name}`);
         }
       } else {
         // This has subcommands
@@ -387,6 +426,8 @@ export class SlashasaurusClient extends Client<true> {
         );
       }
     }
+
+    this.logger?.debug(`Finished loading chat commands from folder`);
 
     return commandData;
   }
@@ -399,6 +440,10 @@ export class SlashasaurusClient extends Client<true> {
 
     const commandData: ApplicationCommandOptionData[] = [];
 
+    this.logger?.debug(
+      `Loading sub-commands from chat/${name}, found ${topLevel.join(', ')}`
+    );
+
     let metaData = {
       description: 'Default description',
       defaultPermissions: true,
@@ -407,6 +452,8 @@ export class SlashasaurusClient extends Client<true> {
     for (const folderOrFile of topLevel) {
       const filePath = join(path, folderOrFile);
       if ((await stat(filePath)).isFile()) {
+        this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
+
         // This is a file
         if (folderOrFile.match(/_meta(.js|.ts)x?$/)) {
           // This is the meta file which should export meta info about the command
@@ -421,7 +468,11 @@ export class SlashasaurusClient extends Client<true> {
             metaData.defaultPermissions = data.defaultPermissions;
           }
         } else if (folderOrFile.match(JSFileRegex)) {
-          const data = await import(join(path, folderOrFile));
+          this.logger?.debug(
+            `Checking if file ${folderOrFile} contains a command`
+          );
+          // This is a js file
+          const data = await import(filePath);
           if (!data.default) {
             throw new Error(
               `Expected a default export in file ${join(
@@ -430,6 +481,9 @@ export class SlashasaurusClient extends Client<true> {
               )} but didn't find one`
             );
           }
+          this.logger?.debug(
+            `Checking if default export of ${folderOrFile} is a command`
+          );
           const command = data.default;
           if (!isChatCommand(command)) {
             throw new Error(
@@ -439,11 +493,17 @@ export class SlashasaurusClient extends Client<true> {
               )} to be a SlashCommand`
             );
           }
+          this.logger?.debug(
+            `Adding command from ${folderOrFile} to command map`
+          );
           this.commandMap.set(name + '.' + command.commandInfo.name, command);
           // @ts-expect-error it's gonna complain, but we need to change the type here
           command.commandInfo.type = 'SUB_COMMAND';
           // @ts-expect-error yes TS I know this isn't technically an option type, but the above fixes this
           commandData.push(command.commandInfo);
+          this.logger?.debug(
+            `Loaded chat command ${name}.${command.commandInfo.name}`
+          );
         }
       } else {
         // This is either a subcommand group or a subcommand
@@ -456,6 +516,8 @@ export class SlashasaurusClient extends Client<true> {
         );
       }
     }
+
+    this.logger?.debug(`Finished loading sub-commands from chat/${name}`);
 
     return {
       type: 'CHAT_INPUT',
@@ -474,6 +536,12 @@ export class SlashasaurusClient extends Client<true> {
 
     const commandData: ApplicationCommandOptionData[] = [];
 
+    this.logger?.debug(
+      `Loading sub-commands from chat/${parentName}/${name}, found ${topLevel.join(
+        ', '
+      )}`
+    );
+
     let metaData = {
       description: 'Default description',
       defaultPermissions: true,
@@ -481,6 +549,7 @@ export class SlashasaurusClient extends Client<true> {
 
     for (const folderOrFile of topLevel) {
       const filePath = join(path, folderOrFile);
+      this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
       if ((await stat(filePath)).isFile()) {
         if (folderOrFile.match(/_meta(.js|.ts)x?$/)) {
           // This is the meta file which should export meta info about the command
@@ -495,6 +564,9 @@ export class SlashasaurusClient extends Client<true> {
             metaData.defaultPermissions = data.defaultPermissions;
           }
         } else if (folderOrFile.match(JSFileRegex)) {
+          this.logger?.debug(
+            `Checking if file ${folderOrFile} contains a command`
+          );
           const data = await import(join(path, folderOrFile));
           if (!data.default) {
             throw new Error(
@@ -504,6 +576,9 @@ export class SlashasaurusClient extends Client<true> {
               )} but didn't find one`
             );
           }
+          this.logger?.debug(
+            `Checking if default export of ${folderOrFile} is a command`
+          );
           const command = data.default;
           if (!isChatCommand(command)) {
             throw new Error(
@@ -513,6 +588,9 @@ export class SlashasaurusClient extends Client<true> {
               )} to be a SlashCommand`
             );
           }
+          this.logger?.debug(
+            `Adding command from ${folderOrFile} to command map`
+          );
           this.commandMap.set(
             parentName + '.' + name + '.' + command.commandInfo.name,
             command
@@ -521,9 +599,16 @@ export class SlashasaurusClient extends Client<true> {
           command.commandInfo.type = 'SUB_COMMAND';
           // @ts-expect-error yes TS I know this isn't technically an option type, but the above fixes this
           commandData.push(command.commandInfo);
+          this.logger?.debug(
+            `Loaded chat command ${parentName}.${name}.${command.commandInfo.name}`
+          );
         }
       }
     }
+
+    this.logger?.debug(
+      `Finished loading sub-commands from chat/${parentName}/${name}`
+    );
 
     return {
       type: 'SUB_COMMAND_GROUP',

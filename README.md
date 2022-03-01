@@ -18,6 +18,7 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 
 - [Installation](#installation)
 - [Latest Changelogs](#latest-changelogs)
+  - [0.3.0](#030)
   - [0.2.0](#020)
   - [0.1.0](#010)
 - [Usage](#usage)
@@ -29,6 +30,7 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
   - [Creating a Context Menu Command](#creating-a-context-menu-command)
 - [Pages](#pages)
   - [Our First Page](#our-first-page)
+  - [Using tsx with Pages](#using-tsx-with-pages)
   - [Where to go from here?](#where-to-go-from-here-)
 - [Conclusion](#conclusion)
 
@@ -47,6 +49,10 @@ yarn add discord.js slashasaurus
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
 
 ## Latest Changelogs
+
+### 0.3.0
+
+Added TSX support, see the end of the Pages section for details
 
 ### 0.2.0
 
@@ -127,7 +133,7 @@ my-bot
 │  ├─ index.ts
 │  └─ commands
 │     └─ chat
-│     	 └─ ping.ts
+│        └─ ping.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -173,8 +179,8 @@ my-bot
 │  ├─ index.ts
 │  └─ commands
 │     └─ chat
-│     	 ├─ hello.ts
-│     	 └─ ping.ts
+│        ├─ hello.ts
+│        └─ ping.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -227,9 +233,9 @@ my-bot
 │  ├─ index.ts
 │  └─ commands
 │     └─ chat
-│     	 ├─ hello.ts
-│     	 ├─ ping.ts
-│     	 └─ survey.ts
+│        ├─ hello.ts
+│        ├─ ping.ts
+│        └─ survey.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -297,10 +303,10 @@ my-bot
 │  ├─ index.ts
 │  └─ commands
 │     └─ chat
-│     	 ├─ hello.ts
-│     	 ├─ ping.ts
-│     	 ├─ longsurvey.ts
-│     	 └─ survey.ts
+│        ├─ hello.ts
+│        ├─ ping.ts
+│        ├─ longsurvey.ts
+│        └─ survey.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -361,14 +367,14 @@ my-bot
 │  ├─ index.ts
 │  └─ commands
 │     └─ chat
-│     	 ├─ hello.ts
-│     	 ├─ ping.ts
-│     	 ├─ longsurvey.ts
-│     	 ├─ role
+│        ├─ hello.ts
+│        ├─ ping.ts
+│        ├─ longsurvey.ts
+│        ├─ role
 │        │  ├─ add.ts
 │        │  └─ remove.ts
 │        │
-│     	 └─ survey.ts
+│        └─ survey.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -383,15 +389,15 @@ my-bot
 │  ├─ index.ts
 │  └─ commands
 │     └─ chat
-│     	 ├─ hello.ts
-│     	 ├─ ping.ts
-│     	 ├─ longsurvey.ts
-│     	 ├─ role
+│        ├─ hello.ts
+│        ├─ ping.ts
+│        ├─ longsurvey.ts
+│        ├─ role
 │        │  ├─ _meta.ts
 │        │  ├─ add.ts
 │        │  └─ remove.ts
 │        │
-│     	 └─ survey.ts
+│        └─ survey.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -420,14 +426,14 @@ my-bot
 │  └─ commands
 │     ├─ chat
 │     │  ├─ hello.ts
-│     │	 ├─ ping.ts
+│     │   ├─ ping.ts
 │     │  ├─ longsurvey.ts
-│     │	 ├─ role
+│     │   ├─ role
 │     │  │  ├─ _meta.ts
 │     │  │  ├─ add.ts
 │     │  │  └─ remove.ts
 │     │  │
-│     │	 └─ survey.ts
+│     │   └─ survey.ts
 │     │
 |     └─ message
 │        └─ mock.ts
@@ -540,7 +546,7 @@ my-bot
 │  ├─ index.ts
 │  ├─ commands
 │  └─ pages
-│			└─ toggle.ts
+│      └─ toggle.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -746,7 +752,7 @@ my-bot
 │  ├─ index.ts
 │  └─ commands
 │     └─ chat
-│     	 └─ lights.ts
+│        └─ lights.ts
 │
 ├─ tsconfig.json
 ├─ README.md
@@ -774,6 +780,149 @@ export default new SlashCommand(
 ```
 
 Here we create a new instance of TogglePage and call `sendAsReply` to reply to the interaction with our brand new Page. You can optionally pass `true` as the second argument to send it as an ephemeral reply. Now this is all ready to go! If you start your bot and run the command, the Page should be sent as the reply and you can click your brand new button.
+
+### Using tsx with Pages
+
+First, in order to use tsx with your Pages, make sure you're using at least version 0.3.0 of slashasaurus. The other thing to keep in mind is that this is TypeScript only at the moment. It uses TypeScript's native tsx functionality to transform the code when transpiling to JS. We'll need to start by adding a couple options to our tsconfig.
+
+```json
+// tsconfig.json
+{
+  // ...
+  "compilerOptions": {
+    // ...
+    "jsx": "react",
+    "jsxFactory": "createInteractable",
+    "jsxFragmentFactory": "null"
+  }
+}
+```
+
+This will enable TSX support and change it to work with slashasaurus instead of React. Now we can change up how our Page works. In any files where you want to use the tsx, make sure to change the file extension to `.tsx` and import `createInteractable` from slashasaurus. Let's take a look at our TogglePage example from earlier.
+
+Before:
+
+```ts
+// toggle.ts
+import {
+  DeserializeStateFn,
+  Page,
+  PageInteractableButton,
+  RenderedPage,
+} from 'slashasaurus';
+
+export default class TogglePage extends Page<{}, TogglePageState> {
+  static pageId = 'toggle';
+
+  constructor(props: {}) {
+    super(props);
+    this.toggle = this.toggle.bind(this);
+    this.state = {
+      on: false,
+    };
+  }
+
+  serializeState() {
+    return JSON.stringify(this.state);
+  }
+
+  async toggle(interaction: ButtonInteraction) {
+    interaction.deferUpdate();
+    this.setState({
+      on: !this.state.on,
+    });
+  }
+
+  render(): RenderedPage {
+    return {
+      content: `The lights are currently: ${this.state.on ? 'on' : 'off'}`,
+      components: [
+        [
+          new PageInteractableButton({
+            handler: this.toggle, // We'll write this function in a second
+            label: 'Toggle the lights',
+            style: 'PRIMARY',
+          }),
+        ],
+      ],
+    };
+  }
+}
+
+export const deserializeState: DeserializeStateFn<{}, TogglePageState> = (
+  serializedState
+) => {
+  const state = JSON.parse(serializedState);
+  return {
+    props: {},
+    state,
+  };
+};
+```
+
+After:
+
+```tsx
+// toggle.tsx
+import {
+  createInteractable
+  DeserializeStateFn,
+  Page,
+  PageActionRow,
+  PageInteractableButton,
+  RenderedPage,
+} from 'slashasaurus';
+
+export default class TogglePage extends Page<{}, TogglePageState> {
+  static pageId = 'toggle';
+
+  constructor(props: {}) {
+    super(props);
+    this.toggle = this.toggle.bind(this);
+    this.state = {
+      on: false,
+    };
+  }
+
+  serializeState() {
+    return JSON.stringify(this.state);
+  }
+
+  async toggle(interaction: ButtonInteraction) {
+    interaction.deferUpdate();
+    this.setState({
+      on: !this.state.on,
+    });
+  }
+
+  render(): RenderedPage {
+    return {
+      content: `The lights are currently: ${this.state.on ? 'on' : 'off'}`,
+      components: (
+        <>
+          <PageActionRow>
+            <PageInteractableButton
+              handler={this.toggle}
+              label='Toggle the lights'
+              style='PRIMARY'
+            />
+          </PageActionRow>
+        </>
+      ),
+    };
+  }
+}
+
+export const deserializeState: DeserializeStateFn<{}, TogglePageState> = (
+  serializedState
+) => {
+  const state = JSON.parse(serializedState);
+  return {
+    props: {},
+    state,
+  };
+};
+```
 
 ### Where to go from here?
 
