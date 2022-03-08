@@ -1,5 +1,6 @@
 import {
   ApplicationCommandOptionChoice,
+  AutocompleteInteraction,
   CommandInteractionOption,
   CommandOptionChannelResolvableType,
   CommandOptionChoiceResolvableType,
@@ -11,18 +12,8 @@ import {
   ApplicationCommandOptionTypes,
   ChannelTypes,
 } from 'discord.js/typings/enums';
+import { SlashasaurusClient } from './SlashasaurusClient';
 
-export type PropType<TObj, TProp extends keyof TObj> = TObj[TProp];
-export type HasProp<TObj, TProp> = TProp extends keyof TObj ? true : false;
-export type HasKey<
-  T,
-  Key extends string | number | symbol
-> = keyof T extends Key ? true : false;
-export type ExtractDefinedType<T> = ((a: T) => any) extends (
-  a: infer H | undefined
-) => any
-  ? H
-  : never;
 export type ExtractArrayType<T> = ((a: T) => any) extends (
   a: Array<infer H>
 ) => any
@@ -37,64 +28,63 @@ type TailOfReadonly<T extends Readonly<any[]>> = ((
   ? Tail_
   : never;
 
-type MapChoicesToValues<
-  T extends ReadonlyArray<ApplicationCommandOptionChoice>
-> = LengthOfReadonly<T> extends 0
-  ? never
-  : LengthOfReadonly<T> extends 1
-  ? PropType<HeadOfReadonly<T>, 'value'>
-  :
-      | PropType<HeadOfReadonly<T>, 'value'>
-      | MapChoicesToValues<TailOfReadonly<T>>;
+type MapChoicesToValues<T extends readonly ApplicationCommandOptionChoice[]> = {
+  [K in keyof T]: T[K] extends ApplicationCommandOptionChoice
+    ? T[K]['value']
+    : never;
+}[number];
 
 type HasChoices = {
-  type: CommandOptionChoiceResolvableType;
-  choices: ReadonlyArray<ApplicationCommandOptionChoice>;
+  choices: readonly [
+    ApplicationCommandOptionChoice,
+    ...ApplicationCommandOptionChoice[]
+  ];
 };
 
-type OptionToValue<T extends ReadonlyApplicationCommandOptionData> = PropType<
-  T,
-  'type'
-> extends 'STRING'
-  ? T extends HasChoices
-    ? MapChoicesToValues<PropType<T, 'choices'>>
-    : string
-  : PropType<T, 'type'> extends 'INTEGER'
-  ? T extends HasChoices
-    ? MapChoicesToValues<PropType<T, 'choices'>>
-    : number
-  : PropType<T, 'type'> extends 'BOOLEAN'
-  ? boolean
-  : PropType<T, 'type'> extends 'USER'
-  ? NonNullable<CommandInteractionOption['user']>
-  : PropType<T, 'type'> extends 'CHANNEL'
-  ? NonNullable<CommandInteractionOption['channel']>
-  : PropType<T, 'type'> extends 'ROLE'
-  ? NonNullable<CommandInteractionOption['role']>
-  : PropType<T, 'type'> extends 'MENTIONABLE'
-  ? NonNullable<CommandInteractionOption['member' | 'role' | 'user']>
-  : PropType<T, 'type'> extends 'NUMBER'
-  ? T extends HasChoices
-    ? MapChoicesToValues<PropType<T, 'choices'>>
-    : number
-  : null;
+type OptionsMap = {
+  STRING: string;
+  3: string;
+  INTEGER: number;
+  4: number;
+  BOOLEAN: boolean;
+  5: boolean;
+  USER: NonNullable<CommandInteractionOption['user']>;
+  6: NonNullable<CommandInteractionOption['user']>;
+  CHANNEL: NonNullable<CommandInteractionOption['channel']>;
+  7: NonNullable<CommandInteractionOption['channel']>;
+  ROLE: NonNullable<CommandInteractionOption['role']>;
+  8: NonNullable<CommandInteractionOption['role']>;
+  MENTIONABLE: NonNullable<
+    CommandInteractionOption['member' | 'role' | 'user']
+  >;
+  9: NonNullable<CommandInteractionOption['member' | 'role' | 'user']>;
+  NUMBER: number;
+  10: number;
+};
 
-type MapOptionToKeyedObject<T extends ReadonlyApplicationCommandOptionData> =
-  T extends { required?: boolean }
-    ? PropType<T, 'required'> extends true
-      ? OptionToValue<T>
-      : OptionToValue<T> | null
-    : OptionToValue<T>;
+type OptionToValue<T extends ReadonlyApplicationCommandOptionData> =
+  T extends HasChoices
+    ? MapChoicesToValues<T['choices']>
+    : OptionsMap[T['type']];
 
 export type CommandOptionsObject<T extends OptionsDataArray> = {
-  [Key in T[number]['name']]: MapOptionToKeyedObject<
-    Extract<T[number], { name: Key }>
-  >;
+  [Key in T[number]['name']]: Extract<
+    T[number],
+    { name: Key }
+  >['required'] extends true
+    ? OptionToValue<Extract<T[number], { name: Key }>>
+    : OptionToValue<Extract<T[number], { name: Key }>> | null;
 };
 
 type MapOptionToAutocompleteName<
   T extends ReadonlyApplicationCommandOptionData
-> = T extends { autocomplete: true } ? PropType<T, 'name'> : never;
+> = T extends { autocomplete: true }
+  ? T extends {
+      onAutocomplete: Function;
+    }
+    ? never
+    : T['name']
+  : never;
 
 export type MapOptionsToAutocompleteNames<
   T extends readonly ReadonlyApplicationCommandOptionData[]
@@ -128,20 +118,31 @@ interface ReadonlyApplicationCommandChannelOptionData
 interface ReadonlyApplicationCommandChoicesData
   extends Omit<ReadonlyBaseApplicationCommandOptionsData, 'autocomplete'> {
   readonly type: CommandOptionChoiceResolvableType;
-  readonly choices?: ReadonlyArray<ApplicationCommandOptionChoice>;
+  readonly choices?:
+    | readonly [
+        ApplicationCommandOptionChoice,
+        ...ApplicationCommandOptionChoice[]
+      ];
   readonly autocomplete?: false;
 }
 
+type AutocompletableTypes =
+  | 'STRING'
+  | 'NUMBER'
+  | 'INTEGER'
+  | ApplicationCommandOptionTypes.STRING
+  | ApplicationCommandOptionTypes.NUMBER
+  | ApplicationCommandOptionTypes.INTEGER;
+
 interface ReadonlyApplicationCommandAutocompleteOption
   extends Omit<ReadonlyBaseApplicationCommandOptionsData, 'autocomplete'> {
-  readonly type:
-    | 'STRING'
-    | 'NUMBER'
-    | 'INTEGER'
-    | ApplicationCommandOptionTypes.STRING
-    | ApplicationCommandOptionTypes.NUMBER
-    | ApplicationCommandOptionTypes.INTEGER;
+  readonly type: AutocompletableTypes;
   readonly autocomplete: true;
+  readonly onAutocomplete?: (
+    interaction: AutocompleteInteraction,
+    value: string | number,
+    client: SlashasaurusClient
+  ) => void;
 }
 
 interface ReadonlyApplicationCommandNumericOptionData

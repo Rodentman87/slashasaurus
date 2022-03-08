@@ -3,14 +3,12 @@ import { SlashasaurusClient } from './SlashasaurusClient';
 import {
   MapOptionsToAutocompleteNames,
   CommandOptionsObject,
-  ReadonlyApplicationCommandOptionData,
   OptionsDataArray,
 } from './utilityTypes';
 
 type ChatCommandOptions<T> = {
   name: string;
   description: string;
-  type: 'CHAT_INPUT';
   options: T;
   defaultPermission?: boolean;
 };
@@ -45,28 +43,19 @@ export function isChatCommand(command: any): command is SlashCommand<any> {
   return command instanceof SlashCommand;
 }
 
-export class SlashCommand<
-  T extends
-    | readonly [
-        ReadonlyApplicationCommandOptionData,
-        ...ReadonlyApplicationCommandOptionData[]
-      ]
-    | []
-> {
-  commandInfo: ChatCommandOptions<T>;
+export class SlashCommand<T extends OptionsDataArray> {
+  commandInfo: ChatCommandOptions<T> & { type: string };
 
   /**
    *
    * @param commandInfo The general info for the command
    * @param handlers
    */
-  constructor(
-    commandInfo: Omit<ChatCommandOptions<T>, 'type'>,
-    handlers: HandlersType<T>
-  ) {
-    const info: ChatCommandOptions<T> = commandInfo as ChatCommandOptions<T>;
-    info.type = 'CHAT_INPUT';
-    this.commandInfo = info;
+  constructor(commandInfo: ChatCommandOptions<T>, handlers: HandlersType<T>) {
+    this.commandInfo = {
+      ...commandInfo,
+      type: 'CHAT_INPUT',
+    };
     this.run = handlers.run;
     if ('autocomplete' in handlers) this.autocomplete = handlers.autocomplete;
   }

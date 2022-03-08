@@ -18,6 +18,7 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 
 - [Installation](#installation)
 - [Latest Changelogs](#latest-changelogs)
+  - [0.4.0](#040)
   - [0.3.0](#030)
   - [0.2.0](#020)
   - [0.1.0](#010)
@@ -49,6 +50,10 @@ yarn add discord.js slashasaurus
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
 
 ## Latest Changelogs
+
+### 0.4.0
+
+Added support for specifying an `onAutocomplete` handler for autocomplete args. This allows for easily re-usable autocomplete handlers for things that may be common across multiple commands in your bot.
 
 ### 0.3.0
 
@@ -354,6 +359,8 @@ export default new SlashCommand(
 ```
 
 Here we have our second handler, `autocomplete`. This handler is given the autocomplete interaction, the name of the field that's being filled out, the value the user has entered so far, the client, and finally the options again. The `focusedName` will only ever be one of the options with autocomplete set to true, so in this case it's type is `"food"`, but if we had another it would be a union of the two, for instance: `"food" | "other"`.
+
+> :warning: Optionally, you can specify `onAutocomplete` inside your `food` option, this function will receive `interaction`, `value`, and `client`. If you pass this handler, all autocomplete interactions related to this arg will call that function _instead_ of the `autocomplete` inside your handlers. This is extra useful when you have a specific autocomplete that's used across multiple commands, for instance autocompleting the name of something in a search, etc.
 
 ### A Command With Subcommands
 

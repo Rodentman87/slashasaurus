@@ -47,6 +47,7 @@ import {
   isChatCommand,
 } from './SlashCommandBase';
 import { PingableTimedCache } from './PingableTimedCache';
+import { ReadonlyApplicationCommandOptionData } from './utilityTypes';
 
 interface SlashasaurusClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
@@ -416,7 +417,7 @@ export class SlashasaurusClient extends Client<true> {
             `Adding command from ${folderOrFile} to command map`
           );
           this.commandMap.set(command.commandInfo.name, command);
-          commandData.push(command.commandInfo);
+          commandData.push(command.commandInfo as any);
           this.logger?.debug(`Loaded chat command ${command.commandInfo.name}`);
         }
       } else {
@@ -497,7 +498,6 @@ export class SlashasaurusClient extends Client<true> {
             `Adding command from ${folderOrFile} to command map`
           );
           this.commandMap.set(name + '.' + command.commandInfo.name, command);
-          // @ts-expect-error it's gonna complain, but we need to change the type here
           command.commandInfo.type = 'SUB_COMMAND';
           // @ts-expect-error yes TS I know this isn't technically an option type, but the above fixes this
           commandData.push(command.commandInfo);
@@ -595,7 +595,6 @@ export class SlashasaurusClient extends Client<true> {
             parentName + '.' + name + '.' + command.commandInfo.name,
             command
           );
-          // @ts-expect-error it's gonna complain, but we need to change the type here
           command.commandInfo.type = 'SUB_COMMAND';
           // @ts-expect-error yes TS I know this isn't technically an option type, but the above fixes this
           commandData.push(command.commandInfo);
@@ -732,7 +731,6 @@ export class SlashasaurusClient extends Client<true> {
           option.user ??
           option.value;
       });
-      // @ts-expect-error
       await this.chatCommandMiddleware.execute(
         command.run,
         interaction,
@@ -760,16 +758,33 @@ export class SlashasaurusClient extends Client<true> {
           option.value;
       });
       const focused = interaction.options.getFocused(true);
-      // @ts-expect-error
-      await this.autocompleteMiddleware.execute(
-        command.autocomplete,
-        interaction,
-        // @ts-expect-error
-        focused.name,
-        focused.value,
-        this,
-        optionsObj
+      const option = command.commandInfo.options.find(
+        (o: ReadonlyApplicationCommandOptionData) => o.name === focused.name
       );
+      if (option.onAutocomplete) {
+        await this.autocompleteMiddleware.execute(
+          (interaction, _name, value, client) => {
+            option.onAutocomplete(interaction, value, client);
+          },
+          interaction,
+          // @ts-expect-error
+          focused.name,
+          focused.value,
+          this,
+          optionsObj
+        );
+      } else {
+        // @ts-expect-error
+        await this.autocompleteMiddleware.execute(
+          command.autocomplete,
+          interaction,
+          // @ts-expect-error
+          focused.name,
+          focused.value,
+          this,
+          optionsObj
+        );
+      }
     }
   }
 
@@ -973,7 +988,7 @@ export class SlashasaurusClient extends Client<true> {
         throw new Error(
           `A component tried to load a page type that isn't registered, ${pageId}`
         );
-      const deserialized = deserialize(stateString, interaction);
+      const deserialized = await deserialize(stateString, interaction);
       if (!('props' in deserialized)) {
         if (message instanceof Message) {
           await message.delete();
