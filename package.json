@@ -1,6 +1,6 @@
 {
   "name": "slashasaurus",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
@@ -17,5 +17,6 @@
   },
   "peerDependencies": {
     "discord.js": "^13.3.1"
-  }
+  },
+  "dependencies": {}
 }

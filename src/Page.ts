@@ -187,23 +187,29 @@ export function pageComponentRowsToComponents(
   page.clearHandlers();
   // @ts-expect-error still messing with statics
   const pageId = page.constructor.pageId;
-  return rows.map((row) => {
-    const actionRow = new MessageActionRow();
-    if (row instanceof PageActionRow) {
-      row.children.forEach((component) => {
-        actionRow.addComponents(
-          componentToDjsComponent(component, page, pageId)
-        );
-      });
-    } else {
-      row.forEach((component) => {
-        actionRow.addComponents(
-          componentToDjsComponent(component, page, pageId)
-        );
-      });
-    }
-    return actionRow;
-  });
+  return rows
+    .map((row) => {
+      const actionRow = new MessageActionRow();
+      if (row instanceof PageActionRow) {
+        row.children.forEach((component) => {
+          actionRow.addComponents(
+            componentToDjsComponent(component, page, pageId)
+          );
+        });
+      } else if (Array.isArray(row)) {
+        row.forEach((component) => {
+          actionRow.addComponents(
+            componentToDjsComponent(component, page, pageId)
+          );
+        });
+      } else {
+        return null;
+      }
+      return actionRow;
+    })
+    .filter<MessageActionRow>(
+      (e): e is MessageActionRow => e instanceof MessageActionRow
+    );
 }
 
 function componentToDjsComponent(
@@ -230,15 +236,19 @@ export function compareMessages(
 ) {
   if (a.content !== b.content) return false;
 
+  const bComponents = b.components?.filter(
+    (c) => Array.isArray(c) || c instanceof PageActionRow
+  );
+
   // Check Components
   if (
     a.components &&
-    b.components &&
-    a.components.length === b.components.length
+    bComponents &&
+    a.components.length === bComponents.length
   ) {
     // They both have components, lets compare them
     const componentsMatch = [...a.components].every((row, index) => {
-      const bRow = b.components![index];
+      const bRow = bComponents![index];
       const bChildren = bRow instanceof PageActionRow ? bRow.children : bRow;
       if (row.components.length !== bChildren.length) return false;
       return [...bChildren].every((component, index) => {
@@ -246,13 +256,17 @@ export function compareMessages(
       });
     });
     if (!componentsMatch) return false;
-  } else if (a.components || b.components) {
+  } else if (a.components || bComponents) {
     // One has components but the other doesn't
     return false;
   }
 
   // Check Embeds
-  if (a.embeds.length !== (b.embeds ?? []).length) return false;
+  if (
+    // @ts-expect-error
+    a.embeds.filter((e) => e.type === 'rich').length !== (b.embeds ?? []).length
+  )
+    return false;
   if (a.embeds.length > 0) {
     if (
       !b.embeds!.every((bEmbedData, index) => {
@@ -260,7 +274,8 @@ export function compareMessages(
           bEmbedData instanceof MessageEmbed
             ? bEmbedData
             : new MessageEmbed(bEmbedData);
-        return bEmbed.equals(a.embeds[index]);
+        // return bEmbed.equals(a.embeds[index]);
+        return embedsAreEqual(a.embeds[index], bEmbed);
       })
     ) {
       return false;
@@ -268,4 +283,79 @@ export function compareMessages(
   }
 
   return true;
+}
+
+function embedsAreEqual(
+  a: MessageComponentInteraction['message']['embeds'][number],
+  b: MessageEmbed
+) {
+  if (a.type !== 'rich') return true;
+
+  if (
+    a.title !== b.title?.trim() ||
+    a.type !== b.type ||
+    a.description !== b.description?.trim() ||
+    a.url !== b.url ||
+    a.timestamp !== b.timestamp ||
+    a.color !== b.color
+  )
+    return false;
+
+  // Compare authors
+  const headerIconUrl =
+    a.author &&
+    ('iconURL' in a.author
+      ? a.author.iconURL
+      : 'icon_url' in a.author
+      ? a.author.icon_url
+      : undefined);
+  if (
+    a.author &&
+    b.author &&
+    (a.author.name !== b.author.name?.trim() ||
+      headerIconUrl !== b.author.iconURL ||
+      a.author.url !== b.author.url)
+  )
+    return false;
+  else if ((a.author && !b.author) || (b.author && !a.author)) return false;
+
+  // Compare footers
+  const footerIconUrl =
+    a.footer &&
+    ('iconURL' in a.footer
+      ? a.footer.iconURL
+      : 'icon_url' in a.footer
+      ? a.footer.icon_url
+      : undefined);
+  if (
+    a.footer &&
+    b.footer &&
+    (a.footer?.text !== b.footer?.text?.trim() ||
+      footerIconUrl !== b.footer?.iconURL)
+  )
+    return false;
+  else if ((a.footer && !b.footer) || (b.footer && !a.footer)) return false;
+
+  // Compare images
+  if (
+    (a.image && !b.image) ||
+    (b.image && !a.image) ||
+    a.image?.url !== b.image?.url
+  )
+    return false;
+  if (
+    (a.thumbnail && !b.thumbnail) ||
+    (b.thumbnail && !a.thumbnail) ||
+    a.thumbnail?.url !== b.thumbnail?.url
+  )
+    return false;
+
+  // Compare fields
+  if ((a.fields ?? []).length !== b.fields.length) return false;
+  return (a.fields ?? []).every(
+    (f, i) =>
+      f.inline === b.fields[i].inline &&
+      f.name === b.fields[i].name?.trim() &&
+      f.value === b.fields[i].value?.trim()
+  );
 }

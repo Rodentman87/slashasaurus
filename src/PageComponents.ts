@@ -94,7 +94,7 @@ export class PageInteractableButton implements ExportableToDjsComponent {
   }
 
   compareToComponent(component: PotentialDjsComponent) {
-    if (!(component.type === 'BUTTON')) return false;
+    if (!(component.type === 'BUTTON' || component.type === 2)) return false;
     if ((this.emoji && !component.emoji) || (!this.emoji && component.emoji))
       return false;
     if (this.emoji && component.emoji) {
@@ -102,7 +102,10 @@ export class PageInteractableButton implements ExportableToDjsComponent {
       if (component.emoji.id !== id) return false;
     }
     return (
-      this.style === component.style &&
+      // @ts-expect-error this is private but we need to use it
+      MessageButton.resolveStyle(this.style) ===
+        // @ts-expect-error this is private but we need to use it
+        MessageButton.resolveStyle(component.style as any) &&
       this.disabled === component.disabled &&
       this.label === component.label
     );
@@ -135,7 +138,7 @@ export class PageLinkButton implements ExportableToDjsComponent {
   }
 
   compareToComponent(component: PotentialDjsComponent) {
-    if (!(component.type === 'BUTTON')) return false;
+    if (!(component.type === 'BUTTON' || component.type === 2)) return false;
     if ((this.emoji && !component.emoji) || (!this.emoji && component.emoji))
       return false;
     if (this.emoji && component.emoji) {
@@ -143,7 +146,7 @@ export class PageLinkButton implements ExportableToDjsComponent {
       if (component.emoji.id !== id) return false;
     }
     return (
-      'LINK' === component.style &&
+      ('LINK' === component.style || 5 === component.style) &&
       this.disabled === component.disabled &&
       this.label === component.label &&
       this.url === component.url

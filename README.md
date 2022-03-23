@@ -18,6 +18,7 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 
 - [Installation](#installation)
 - [Latest Changelogs](#latest-changelogs)
+  - [0.4.1](#041)
   - [0.4.0](#040)
   - [0.3.0](#030)
   - [0.2.0](#020)
@@ -50,6 +51,11 @@ yarn add discord.js slashasaurus
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
 
 ## Latest Changelogs
+
+### 0.4.1
+
+- A couple small fixes when detecting whether or not a Page was updated after a reload from persistent storage.
+- Added support for using `{condition && ...}` inside jsx.
 
 ### 0.4.0
 
@@ -433,14 +439,14 @@ my-bot
 │  └─ commands
 │     ├─ chat
 │     │  ├─ hello.ts
-│     │   ├─ ping.ts
+│     │  ├─ ping.ts
 │     │  ├─ longsurvey.ts
-│     │   ├─ role
+│     │  ├─ role
 │     │  │  ├─ _meta.ts
 │     │  │  ├─ add.ts
 │     │  │  └─ remove.ts
 │     │  │
-│     │   └─ survey.ts
+│     │  └─ survey.ts
 │     │
 |     └─ message
 │        └─ mock.ts
@@ -492,7 +498,51 @@ Let's take a look at a couple examples to see what we can do with Pages.
 
 ### Our First Page
 
-Before we can begin there's a little bit of setup we need to do. First, we need to give slashasaurus a way to store the state of these pages long term. We do this by passing a couple new function into the client constructor, `storePageState` and `getPageState`. These two functions will interface with _any_ persistent storage system you want. This could be redis, postgres, even a JSON file (although that's not recommended).
+Before we begin, let's make a mental model of how Pages work so that you can have some context to what each piece is for. First you'll make an instance of a page and send it to a channel.
+
+```mermaid
+flowchart LR
+	create([Create the page instance]) --> sendC([Send the page to a channel])
+	create --> sendI([Send the page as a response to an interaction])
+	sendC --> render{{"Slashasaurus calls your page's render() function"}}
+	sendI --> render
+	render --> sent{{Page is sent}}
+```
+
+Now that the page has been sent the user will begin to interact with it:
+
+```mermaid
+sequenceDiagram
+	participant User
+	participant Slashasaurus
+	participant Page
+	User ->> Slashasaurus: I've pressed a button
+	opt Page is not cached
+		Slashasaurus ->> Page: Please reload from this old state
+		Slashasaurus ->> Page: render()
+		note right of Page: render() is called so<br/>that the handlers can be<br/>populated again and<br/>we can check for updates
+	end
+	Slashasaurus ->> Page: Call the handler for this button
+	Page ->> User: Here's your response
+```
+
+With the interaction being passed to your handler, you may want to choose to update the state of your Page:
+
+```mermaid
+sequenceDiagram
+	participant User
+	participant Slashasaurus
+	participant Page
+	User ->> Slashasaurus: I've pressed a button
+	Slashasaurus ->> Page: Call the handler for this button
+	Page ->> Page: setState()
+	Page ->> Slashasaurus: Here's my new state
+	Slashasaurus ->> Page: Set this as your new state and render()
+	Slashasaurus ->> Slashasaurus: Store this new state
+	Slashasaurus ->> User: Here's the updated Page
+```
+
+Now that you have a bit of a mental model of what's going on, there's a little bit of setup we need to do. First, we need to give slashasaurus a way to store the state of these pages long term. We do this by passing a couple new function into the client constructor, `storePageState` and `getPageState`. These two functions will interface with _any_ persistent storage system you want. This could be redis, postgres, even a JSON file (although that's not recommended).
 
 ```ts
 // index.ts
