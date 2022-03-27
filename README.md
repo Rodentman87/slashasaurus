@@ -52,6 +52,11 @@ See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packa
 
 ## Latest Changelogs
 
+### 0.4.2
+
+- A couple small fixes when detecting whether or not a Page was updated after a reload from persistent storage.
+  - Specifically dealing with emoji and labels in buttons and colors in embeds
+
 ### 0.4.1
 
 - A couple small fixes when detecting whether or not a Page was updated after a reload from persistent storage.

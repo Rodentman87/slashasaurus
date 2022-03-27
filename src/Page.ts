@@ -297,7 +297,7 @@ function embedsAreEqual(
     a.description !== b.description?.trim() ||
     a.url !== b.url ||
     a.timestamp !== b.timestamp ||
-    a.color !== b.color
+    (a.color ?? 0) !== b.color
   )
     return false;
 

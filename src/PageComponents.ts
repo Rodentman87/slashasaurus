@@ -8,6 +8,7 @@ import {
   MessageSelectMenu,
   MessageSelectOptionData,
   SelectMenuInteraction,
+  Util,
 } from 'discord.js';
 import { MessageButtonStyles } from 'discord.js/typings/enums';
 
@@ -98,8 +99,8 @@ export class PageInteractableButton implements ExportableToDjsComponent {
     if ((this.emoji && !component.emoji) || (!this.emoji && component.emoji))
       return false;
     if (this.emoji && component.emoji) {
-      const id = typeof this.emoji === 'string' ? this.emoji : this.emoji.id;
-      if (component.emoji.id !== id) return false;
+      if (Util.resolvePartialEmoji(this.emoji)?.id !== component.emoji?.id)
+        return false;
     }
     return (
       // @ts-expect-error this is private but we need to use it
@@ -107,7 +108,7 @@ export class PageInteractableButton implements ExportableToDjsComponent {
         // @ts-expect-error this is private but we need to use it
         MessageButton.resolveStyle(component.style as any) &&
       this.disabled === component.disabled &&
-      this.label === component.label
+      (this.label ?? null) === component.label
     );
   }
 }
@@ -148,7 +149,7 @@ export class PageLinkButton implements ExportableToDjsComponent {
     return (
       ('LINK' === component.style || 5 === component.style) &&
       this.disabled === component.disabled &&
-      this.label === component.label &&
+      (this.label ?? null) === component.label &&
       this.url === component.url
     );
   }
@@ -218,9 +219,8 @@ export class PageSelect implements ExportableToDjsComponent {
       if ((option.emoji && !other.emoji) || (!option.emoji && other.emoji))
         return false;
       if (option.emoji && other.emoji) {
-        const id =
-          typeof option.emoji === 'string' ? option.emoji : option.emoji.id;
-        if (other.emoji.id !== id) return false;
+        if (Util.resolvePartialEmoji(option.emoji)?.id !== other.emoji?.id)
+          return false;
       }
       return true;
     });

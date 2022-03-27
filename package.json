@@ -1,6 +1,6 @@
 {
   "name": "slashasaurus",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
@@ -18,5 +18,8 @@
   "peerDependencies": {
     "discord.js": "^13.3.1"
   },
-  "dependencies": {}
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rodentman87/slashasaurus.git"
+  }
 }
