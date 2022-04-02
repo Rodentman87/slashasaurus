@@ -35,7 +35,7 @@ interface ExportableToDjsComponent {
 export function createInteractable<P>(
   component: new (props: P) => any | ((props: P) => any) | null,
   props: P,
-  ...children: any[]
+  ...children: P extends { children: any } ? P['children'][] : never
 ) {
   if (!component) return children;
   return new component({ ...props, children });
@@ -44,14 +44,17 @@ export function createInteractable<P>(
 type PageActionRowChild = PageButton | PageSelect;
 
 interface PageActionRowProps {
-  children?: PageActionRowChild | PageActionRowChild[];
+  children?: (PageActionRowChild | false) | (PageActionRowChild | false)[];
 }
 
 export class PageActionRow {
   children: PageActionRowChild[];
 
   constructor({ children }: PageActionRowProps) {
-    if (Array.isArray(children)) this.children = children.flat();
+    if (Array.isArray(children))
+      this.children = children
+        .flat()
+        .filter((c): c is PageActionRowChild => c !== false);
     else if (children) this.children = [children];
   }
 }

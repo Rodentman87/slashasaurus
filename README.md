@@ -18,6 +18,8 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 
 - [Installation](#installation)
 - [Latest Changelogs](#latest-changelogs)
+  - [0.4.3](#043)
+  - [0.4.2](#042)
   - [0.4.1](#041)
   - [0.4.0](#040)
   - [0.3.0](#030)
@@ -51,6 +53,10 @@ yarn add discord.js slashasaurus
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
 
 ## Latest Changelogs
+
+### 0.4.3
+
+- A couple small fixes with converting TSX and the `{condition && ...}` syntax
 
 ### 0.4.2
 
