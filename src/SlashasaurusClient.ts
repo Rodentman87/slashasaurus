@@ -196,7 +196,7 @@ export class SlashasaurusClient extends Client<true> {
     super(djsOptions);
     this.logger = options.logger;
     this.devServerId = options.devServerId;
-    this.activePages = new PingableTimedCache(options.pageTtl);
+    this.activePages = new PingableTimedCache(options.pageTtl ?? 30000);
     this.storePageState = options.storePageState ?? defaultPageStore;
     this.getPageState = options.getPageState ?? defaultPageGet;
     this.on('interactionCreate', this.handleInteractionEvent);

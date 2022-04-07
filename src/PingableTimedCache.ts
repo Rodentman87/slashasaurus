@@ -1,44 +1,35 @@
-interface CacheValue<T> {
-  value: T;
-  handle: any;
-}
-
+// Create a cache that clears a value after the default ttl
+// and will refresh the timer on every get
 export class PingableTimedCache<T> {
-  values: Map<string, CacheValue<T>> = new Map();
-  defaultTtl: number;
+  private cache: Map<string, { value: T; time: number }> = new Map();
+  private ttl: number;
+  // @ts-ignore
+  private timer: NodeJS.Timer;
 
-  constructor(defaultTtl?: number) {
-    this.defaultTtl = defaultTtl ?? 30000;
+  constructor(ttl: number) {
+    this.ttl = ttl;
+    this.timer = setInterval(() => this.clear(), 1000);
   }
 
-  delete(key: string) {
-    const value = this.values.get(key);
-    if (!value) return;
-    clearTimeout(value.handle);
-    this.values.delete(key);
+  public get(key: string): T | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      entry.time = Date.now();
+      return entry.value;
+    }
+    return undefined;
   }
 
-  set(key: string, value: T) {
-    const handle = setTimeout(() => this.delete(key), this.defaultTtl);
-    this.values.set(key, {
-      value,
-      handle,
+  public set(key: string, value: T): void {
+    this.cache.set(key, { value, time: Date.now() });
+  }
+
+  public clear(): void {
+    const now = Date.now();
+    this.cache.forEach((entry, key) => {
+      if (now - entry.time > this.ttl) {
+        this.cache.delete(key);
+      }
     });
-  }
-
-  has(key: string) {
-    return this.values.has(key);
-  }
-
-  get(key: string) {
-    const value = this.values.get(key);
-    if (!value) return;
-    clearTimeout(value.handle);
-    const handle = setTimeout(() => this.delete(key), this.defaultTtl);
-    this.values.set(key, {
-      value: value.value,
-      handle,
-    });
-    return value.value;
   }
 }

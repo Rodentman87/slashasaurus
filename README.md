@@ -18,6 +18,7 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 
 - [Installation](#installation)
 - [Latest Changelogs](#latest-changelogs)
+  - [0.4.4](#044)
   - [0.4.3](#043)
   - [0.4.2](#042)
   - [0.4.1](#041)
@@ -53,6 +54,11 @@ yarn add discord.js slashasaurus
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
 
 ## Latest Changelogs
+
+### 0.4.4
+
+- More fixes related to Pages and caching
+- Fix for a couple more comparison issues on embeds
 
 ### 0.4.3
 

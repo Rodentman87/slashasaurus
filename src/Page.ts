@@ -292,14 +292,19 @@ function embedsAreEqual(
   if (a.type !== 'rich') return true;
 
   if (
-    a.title !== b.title?.trim() ||
+    a.title !== (b.title ? b.title.trim() : b.title) ||
     a.type !== b.type ||
-    a.description !== b.description?.trim() ||
+    a.description !== (b.description ? b.description.trim() : b.description) ||
     a.url !== b.url ||
-    a.timestamp !== b.timestamp ||
     (a.color ?? 0) !== b.color
   )
     return false;
+
+  // Compare timestamps
+  if (a.timestamp && b.timestamp) {
+    if (new Date(a.timestamp).getTime() !== new Date(b.timestamp).getTime())
+      return false;
+  } else if (a.timestamp || b.timestamp) return false;
 
   // Compare authors
   const headerIconUrl =
