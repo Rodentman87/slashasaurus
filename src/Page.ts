@@ -59,7 +59,7 @@ export class PageInteractionReplyMessage {
 
 export interface Page<P = {}, S = {}> {
   constructor(props: P): Page<P, S>;
-  render(): RenderedPage;
+  render(): RenderedPage | Promise<RenderedPage>;
 }
 export abstract class Page<P = {}, S = {}> {
   state: Readonly<S>;

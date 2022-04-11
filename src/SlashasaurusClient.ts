@@ -818,7 +818,7 @@ export class SlashasaurusClient extends Client<true> {
         return;
       }
       this.activePages.set(interaction.message.id, page);
-      const renderedPage = page.render();
+      const renderedPage = await page.render();
       if (!compareMessages(interaction.message, renderedPage)) {
         await interaction.update({
           ...renderedPage,
@@ -846,7 +846,7 @@ export class SlashasaurusClient extends Client<true> {
         return;
       }
       this.activePages.set(interaction.message.id, page);
-      const renderedPage = page.render();
+      const renderedPage = await page.render();
       if (!compareMessages(interaction.message, renderedPage)) {
         await interaction.update({
           ...renderedPage,
@@ -871,7 +871,7 @@ export class SlashasaurusClient extends Client<true> {
     interaction: MessageComponentInteraction | BaseCommandInteraction,
     ephemeral: boolean
   ) {
-    const messageOptions = page.render();
+    const messageOptions = await page.render();
     if (ephemeral) {
       // We need to save the interaction instead since it doesn't return a message we can edit
       const message = await interaction.reply({
@@ -924,7 +924,7 @@ export class SlashasaurusClient extends Client<true> {
   }
 
   async sendPageToChannel(page: Page, channel: TextBasedChannel) {
-    const messageOptions = page.render();
+    const messageOptions = await page.render();
     const message = await channel.send({
       ...messageOptions,
       components: messageOptions.components
@@ -947,7 +947,7 @@ export class SlashasaurusClient extends Client<true> {
     if (!page.message)
       throw new Error('You cannot update a page before it has been sent');
     page.state = newState;
-    const messageOptions = page.render();
+    const messageOptions = await page.render();
     const { message } = page;
     await message.edit({
       ...messageOptions,
@@ -1005,7 +1005,7 @@ export class SlashasaurusClient extends Client<true> {
       const newPage: Page = new pageConstructor(props);
       newPage.state = state;
       newPage.message = message;
-      const rendered = newPage.render();
+      const rendered = await newPage.render();
       if (rendered.components)
         pageComponentRowsToComponents(rendered.components, newPage);
       this.activePages.set(message.id, newPage);
