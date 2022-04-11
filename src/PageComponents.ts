@@ -54,7 +54,12 @@ export class PageActionRow {
     if (Array.isArray(children))
       this.children = children
         .flat()
-        .filter((c): c is PageActionRowChild => c !== false);
+        .filter(
+          (c): c is PageActionRowChild =>
+            c instanceof PageInteractableButton ||
+            c instanceof PageLinkButton ||
+            c instanceof PageSelect
+        );
     else if (children) this.children = [children];
   }
 }
