@@ -234,7 +234,7 @@ export function compareMessages(
   a: MessageComponentInteraction['message'],
   b: RenderedPage
 ) {
-  if (a.content !== b.content) return false;
+  if (a.content !== (b.content ?? '')) return false;
 
   const bComponents = b.components?.filter(
     (c) => Array.isArray(c) || c instanceof PageActionRow

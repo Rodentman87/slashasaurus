@@ -208,7 +208,7 @@ export class SlashasaurusClient extends Client<true> {
    * @param folderPath The relative path to the folder
    */
   // TODO: guild specific commands
-  // guild commands will be a 0.3 thing probably tbh
+  // guild commands will be a 0.3 thing probably tbh (lol ok that totally happened :mmLol:)
   async registerCommandsFrom(
     folderPath: string,
     registerTo: 'global' | 'dev' | 'none'
@@ -829,11 +829,27 @@ export class SlashasaurusClient extends Client<true> {
         });
         interaction.followUp({
           content:
-            "An older version of this page was stored, it's been updated. Click the button you want again",
+            "An older version of this page was stored, it's been updated. Click the button you want again.",
           ephemeral: true,
         });
         return;
       }
+    }
+    if (page.message instanceof PageInteractionReplyMessage) {
+      // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
+      page.message = new PageInteractionReplyMessage(
+        interaction.webhook,
+        page.message!.id
+      );
+      // Store the updated page
+      const state = await page.serializeState();
+      this.storePageState(
+        page.message!.id,
+        // @ts-expect-error gonna complain about pageId on the constructor again
+        page.constructor.pageId,
+        state,
+        messageToMessageData(page.message)
+      );
     }
     page.handleId(interaction.customId.split(';')[1], interaction);
   }
@@ -857,11 +873,27 @@ export class SlashasaurusClient extends Client<true> {
         });
         interaction.followUp({
           content:
-            "An older version of this page was stored, it's been updated. Click the button you want again",
+            "An older version of this page was stored, it's been updated. Make your selection again.",
           ephemeral: true,
         });
         return;
       }
+    }
+    if (page.message instanceof PageInteractionReplyMessage) {
+      // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
+      page.message = new PageInteractionReplyMessage(
+        interaction.webhook,
+        page.message!.id
+      );
+      // Store the updated page
+      const state = await page.serializeState();
+      this.storePageState(
+        page.message!.id,
+        // @ts-expect-error gonna complain about pageId on the constructor again
+        page.constructor.pageId,
+        state,
+        messageToMessageData(page.message)
+      );
     }
     page.handleId(interaction.customId.split(';')[1], interaction);
   }

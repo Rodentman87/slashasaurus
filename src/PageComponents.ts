@@ -107,8 +107,7 @@ export class PageInteractableButton implements ExportableToDjsComponent {
     if ((this.emoji && !component.emoji) || (!this.emoji && component.emoji))
       return false;
     if (this.emoji && component.emoji) {
-      if (Util.resolvePartialEmoji(this.emoji)?.id !== component.emoji?.id)
-        return false;
+      if (!compareEmoji(this.emoji, component.emoji)) return false;
     }
     return (
       // @ts-expect-error this is private but we need to use it
@@ -151,8 +150,7 @@ export class PageLinkButton implements ExportableToDjsComponent {
     if ((this.emoji && !component.emoji) || (!this.emoji && component.emoji))
       return false;
     if (this.emoji && component.emoji) {
-      const id = typeof this.emoji === 'string' ? this.emoji : this.emoji.id;
-      if (component.emoji.id !== id) return false;
+      if (!compareEmoji(this.emoji, component.emoji)) return false;
     }
     return (
       ('LINK' === component.style || 5 === component.style) &&
@@ -227,10 +225,22 @@ export class PageSelect implements ExportableToDjsComponent {
       if ((option.emoji && !other.emoji) || (!option.emoji && other.emoji))
         return false;
       if (option.emoji && other.emoji) {
-        if (Util.resolvePartialEmoji(option.emoji)?.id !== other.emoji?.id)
-          return false;
+        if (!compareEmoji(option.emoji, other.emoji)) return false;
       }
       return true;
     });
+  }
+}
+
+function compareEmoji(
+  a: EmojiIdentifierResolvable,
+  bEmoji: { id?: string | null; name?: string | null }
+) {
+  const aEmoji = Util.resolvePartialEmoji(a);
+  if (!aEmoji) return false;
+  if (aEmoji.id) {
+    return aEmoji.id === bEmoji.id;
+  } else {
+    return aEmoji.name === bEmoji.name;
   }
 }
