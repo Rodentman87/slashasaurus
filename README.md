@@ -18,6 +18,7 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 ## Table of Contents
 
 - [Installation](#installation)
+- [Docs](#docs)
 - [Latest Changelogs](#latest-changelogs)
   - [0.4.6](#046)
   - [0.4.5](#045)
@@ -41,6 +42,10 @@ yarn add discord.js slashasaurus
 ```
 
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
+
+## Docs
+
+[View the docs here!](https://rodentman87.gitbook.io/slashasaurus/)
 
 ## Latest Changelogs
 
