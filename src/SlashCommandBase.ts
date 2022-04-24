@@ -4,6 +4,7 @@ import {
   MapOptionsToAutocompleteNames,
   CommandOptionsObject,
   OptionsDataArray,
+  MaybePromise,
 } from './utilityTypes';
 
 type ChatCommandOptions<T> = {
@@ -45,6 +46,16 @@ export function isChatCommand(command: any): command is SlashCommand<any> {
 
 export class SlashCommand<T extends OptionsDataArray> {
   commandInfo: ChatCommandOptions<T> & { type: string };
+  transformersMap: Map<string, (value: string | number) => MaybePromise<any>> =
+    new Map();
+  autocompleteMap: Map<
+    string,
+    (
+      interaction: AutocompleteInteraction,
+      value: string | number,
+      client: SlashasaurusClient
+    ) => MaybePromise<any>
+  > = new Map();
 
   /**
    *
@@ -56,6 +67,12 @@ export class SlashCommand<T extends OptionsDataArray> {
       ...commandInfo,
       type: 'CHAT_INPUT',
     };
+    commandInfo.options.forEach((option) => {
+      if ('transformer' in option)
+        this.transformersMap.set(option.name, option.transformer!);
+      if ('onAutocomplete' in option)
+        this.autocompleteMap.set(option.name, option.onAutocomplete!);
+    });
     this.run = handlers.run;
     if ('autocomplete' in handlers) this.autocomplete = handlers.autocomplete;
   }

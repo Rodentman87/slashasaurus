@@ -47,7 +47,6 @@ import {
   isChatCommand,
 } from './SlashCommandBase';
 import { PingableTimedCache } from './PingableTimedCache';
-import { ReadonlyApplicationCommandOptionData } from './utilityTypes';
 
 interface SlashasaurusClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
@@ -722,15 +721,25 @@ export class SlashasaurusClient extends Client<true> {
       this.logger?.info(`Running command ${commandName}`);
       const data = interaction.options.data;
       const optionsObj: Record<string, any> = {};
-      data.forEach((option) => {
-        optionsObj[option.name] =
-          option.channel ??
-          option.member ??
-          option.message ??
-          option.role ??
-          option.user ??
-          option.value;
-      });
+      await Promise.all(
+        data.map((option) => {
+          if (command.transformersMap.has(option.name)) {
+            return command.transformersMap.get(option.name)!(
+              option.value as string | number
+            ).then((value: any) => {
+              optionsObj[option.name] = value;
+            });
+          } else {
+            optionsObj[option.name] =
+              option.channel ??
+              option.member ??
+              option.message ??
+              option.role ??
+              option.user ??
+              option.value;
+          }
+        })
+      );
       await this.chatCommandMiddleware.execute(
         command.run,
         interaction,
@@ -748,23 +757,31 @@ export class SlashasaurusClient extends Client<true> {
     } else {
       const data = interaction.options.data;
       const optionsObj: Record<string, any> = {};
-      data.forEach((option) => {
-        optionsObj[option.name] =
-          option.channel ??
-          option.member ??
-          option.message ??
-          option.role ??
-          option.user ??
-          option.value;
-      });
-      const focused = interaction.options.getFocused(true);
-      const option = command.commandInfo.options.find(
-        (o: ReadonlyApplicationCommandOptionData) => o.name === focused.name
+      await Promise.all(
+        data.map((option) => {
+          if (command.transformersMap.has(option.name)) {
+            return command.transformersMap.get(option.name)!(
+              option.value as string | number
+            ).then((value: any) => {
+              optionsObj[option.name] = value;
+            });
+          } else {
+            optionsObj[option.name] =
+              option.channel ??
+              option.member ??
+              option.message ??
+              option.role ??
+              option.user ??
+              option.value;
+          }
+        })
       );
-      if (option.onAutocomplete) {
+      const focused = interaction.options.getFocused(true);
+      const autocompleteFn = command.autocompleteMap.get(focused.name);
+      if (autocompleteFn) {
         await this.autocompleteMiddleware.execute(
           (interaction, _name, value, client) => {
-            option.onAutocomplete(interaction, value, client);
+            autocompleteFn(interaction, value, client);
           },
           interaction,
           // @ts-expect-error

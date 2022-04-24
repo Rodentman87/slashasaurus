@@ -20,6 +20,7 @@ It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlan
 - [Installation](#installation)
 - [Docs](#docs)
 - [Latest Changelogs](#latest-changelogs)
+  - [0.5.0](#050)
   - [0.4.6](#046)
   - [0.4.5](#045)
   - [0.4.4](#044)
@@ -48,6 +49,10 @@ See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packa
 [View the docs here!](https://rodentman87.gitbook.io/slashasaurus/)
 
 ## Latest Changelogs
+
+### 0.5.0
+
+Custom `transformer`s for autocomplete options! Now, you can specify a `transformer` function on an autocomplete option to transform the value before it is passed to the handler. (And the types will still be correct!) Have a custom autocomplete for dates? Now you can transform the date before it is passed to the handler. Autocomplete option that uses fuzzy search on something from your database? Now you can get the database object passed right into the handler.
 
 ### 0.4.6
 

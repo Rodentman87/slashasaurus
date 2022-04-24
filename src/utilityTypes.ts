@@ -20,6 +20,8 @@ export type ExtractArrayType<T> = ((a: T) => any) extends (
   ? H
   : never;
 
+export type MaybePromise<T> = T | Promise<T>;
+
 type LengthOfReadonly<T extends Readonly<any[]>> = T['length'];
 type HeadOfReadonly<T extends Readonly<any[]>> = T extends [] ? never : T[0];
 type TailOfReadonly<T extends Readonly<any[]>> = ((
@@ -65,6 +67,8 @@ type OptionsMap = {
 type OptionToValue<T extends ReadonlyApplicationCommandOptionData> =
   T extends HasChoices
     ? MapChoicesToValues<T['choices']>
+    : T extends { transformer: (value: string | number) => unknown }
+    ? Awaited<ReturnType<T['transformer']>>
     : OptionsMap[T['type']];
 
 export type CommandOptionsObject<T extends OptionsDataArray> = {
@@ -143,6 +147,7 @@ interface ReadonlyApplicationCommandAutocompleteOption
     value: string | number,
     client: SlashasaurusClient
   ) => void;
+  readonly transformer?: (value: string | number) => unknown;
 }
 
 interface ReadonlyApplicationCommandNumericOptionData
