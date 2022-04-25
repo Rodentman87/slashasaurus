@@ -70,6 +70,7 @@ export abstract class Page<P = {}, S = {}> {
   nextId: number;
   message: Message | PageInteractionReplyMessage | null;
   static pageId: string = DEFAULT_PAGE_ID;
+  latestInteraction: MessageComponentInteraction | null = null;
 
   constructor(props: P) {
     // @ts-expect-error this will say that _client doesn't exist on the constructor type, but it does and we're abusing that :^)
@@ -122,6 +123,7 @@ export abstract class Page<P = {}, S = {}> {
 
   async transitionTo(newPage: Page) {
     newPage.message = this.message;
+    newPage.latestInteraction = this.latestInteraction;
     await this.client.updatePage(newPage, newPage.state);
     return;
   }

@@ -1,6 +1,5 @@
 import {
   ApplicationCommandData,
-  ApplicationCommandManager,
   ApplicationCommandOptionData,
   AutocompleteInteraction,
   Awaitable,
@@ -13,7 +12,6 @@ import {
   CommandInteraction,
   ContextMenuInteraction,
   DMChannel,
-  GuildApplicationCommandManager,
   Interaction,
   InteractionWebhook,
   Message,
@@ -239,12 +237,10 @@ export class SlashasaurusClient extends Client<true> {
 
     this.logger?.debug(commandData);
 
-    let manager: ApplicationCommandManager | GuildApplicationCommandManager;
+    let manager = this.application!.commands;
     if (registerTo === 'dev') {
-      manager = this.guilds.cache.get(this.devServerId)!.commands;
-      manager.set(commandData);
+      manager.set(commandData, this.devServerId);
     } else if (registerTo === 'global') {
-      manager = this.application!.commands;
       manager.set(commandData);
     }
 
@@ -868,6 +864,7 @@ export class SlashasaurusClient extends Client<true> {
         messageToMessageData(page.message)
       );
     }
+    page.latestInteraction = interaction;
     page.handleId(interaction.customId.split(';')[1], interaction);
   }
 
@@ -912,6 +909,7 @@ export class SlashasaurusClient extends Client<true> {
         messageToMessageData(page.message)
       );
     }
+    page.latestInteraction = interaction;
     page.handleId(interaction.customId.split(';')[1], interaction);
   }
 
@@ -952,14 +950,10 @@ export class SlashasaurusClient extends Client<true> {
           : undefined,
         fetchReply: true,
       });
-      if (message instanceof Message) {
-        page.message = message;
-      } else {
-        page.message = new PageInteractionReplyMessage(
-          interaction.webhook,
-          message.id
-        );
-      }
+      page.message = new PageInteractionReplyMessage(
+        interaction.webhook,
+        message.id
+      );
       const state = await page.serializeState();
       this.storePageState(
         message.id,
@@ -998,12 +992,25 @@ export class SlashasaurusClient extends Client<true> {
     page.state = newState;
     const messageOptions = await page.render();
     const { message } = page;
-    await message.edit({
-      ...messageOptions,
-      components: messageOptions.components
-        ? pageComponentRowsToComponents(messageOptions.components, page)
-        : undefined,
-    });
+    if (
+      message instanceof PageInteractionReplyMessage &&
+      page.latestInteraction &&
+      !page.latestInteraction.deferred
+    ) {
+      await page.latestInteraction.update({
+        ...messageOptions,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : undefined,
+      });
+    } else {
+      await message.edit({
+        ...messageOptions,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : undefined,
+      });
+    }
     const state = await page.serializeState();
     this.activePages.set(message.id, page);
     this.storePageState(
