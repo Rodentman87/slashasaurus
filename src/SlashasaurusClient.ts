@@ -834,6 +834,8 @@ export class SlashasaurusClient extends Client<true> {
       const renderedPage = await page.render();
       if (!compareMessages(interaction.message, renderedPage)) {
         await interaction.update({
+          content: null,
+          embeds: null,
           ...renderedPage,
           components: renderedPage.components
             ? pageComponentRowsToComponents(renderedPage.components, page)
@@ -995,7 +997,7 @@ export class SlashasaurusClient extends Client<true> {
     if (
       message instanceof PageInteractionReplyMessage &&
       page.latestInteraction &&
-      !page.latestInteraction.deferred
+      !(page.latestInteraction.deferred || page.latestInteraction.replied)
     ) {
       await page.latestInteraction.update({
         ...messageOptions,
