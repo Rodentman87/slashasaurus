@@ -5,10 +5,12 @@ export class PingableTimedCache<T> {
   private ttl: number;
   // @ts-ignore
   private timer: NodeJS.Timer;
+  private leaveHook?: (value: T) => void;
 
-  constructor(ttl: number) {
+  constructor(ttl: number, leaveHook?: (value: T) => void) {
     this.ttl = ttl;
     this.timer = setInterval(() => this.clear(), 1000);
+    this.leaveHook = leaveHook;
   }
 
   public get(key: string): T | undefined {
@@ -28,6 +30,7 @@ export class PingableTimedCache<T> {
     const now = Date.now();
     this.cache.forEach((entry, key) => {
       if (now - entry.time > this.ttl) {
+        this.leaveHook?.(entry.value);
         this.cache.delete(key);
       }
     });

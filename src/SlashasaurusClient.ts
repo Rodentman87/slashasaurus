@@ -96,12 +96,18 @@ type StorePageStateFn = (
   pageId: string,
   state: string,
   messageData: string
-) => Promise<void>;
-type GetPageStateFn = (messageId: string) => Promise<{
-  pageId: string;
-  stateString: string;
-  messageData: string;
-}>;
+) => void | Promise<void>;
+type GetPageStateFn = (messageId: string) =>
+  | {
+      pageId: string;
+      stateString: string;
+      messageData: string;
+    }
+  | Promise<{
+      pageId: string;
+      stateString: string;
+      messageData: string;
+    }>;
 
 export interface SlashasaurusClientOptions {
   /**
@@ -193,7 +199,10 @@ export class SlashasaurusClient extends Client<true> {
     super(djsOptions);
     this.logger = options.logger;
     this.devServerId = options.devServerId;
-    this.activePages = new PingableTimedCache(options.pageTtl ?? 30000);
+    this.activePages = new PingableTimedCache(
+      options.pageTtl ?? 30000,
+      (page) => page.pageWillLeaveCache?.()
+    );
     this.storePageState = options.storePageState ?? defaultPageStore;
     this.getPageState = options.getPageState ?? defaultPageGet;
     this.on('interactionCreate', this.handleInteractionEvent);
@@ -966,6 +975,7 @@ export class SlashasaurusClient extends Client<true> {
       );
       this.activePages.set(message.id, page);
     }
+    page.pageDidSend?.();
   }
 
   async sendPageToChannel(page: Page, channel: TextBasedChannel) {
@@ -986,6 +996,7 @@ export class SlashasaurusClient extends Client<true> {
       messageToMessageData(page.message)
     );
     this.activePages.set(message.id, page);
+    page.pageDidSend?.();
   }
 
   async updatePage(page: Page, newState: any) {

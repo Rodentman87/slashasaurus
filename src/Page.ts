@@ -60,6 +60,8 @@ export class PageInteractionReplyMessage {
 export interface Page<P = {}, S = {}> {
   constructor(props: P): Page<P, S>;
   render(): RenderedPage | Promise<RenderedPage>;
+  pageDidSend?(): void | Promise<void>;
+  pageWillLeaveCache?(): void | Promise<void>;
 }
 export abstract class Page<P = {}, S = {}> {
   state: Readonly<S>;
@@ -125,6 +127,7 @@ export abstract class Page<P = {}, S = {}> {
     newPage.message = this.message;
     newPage.latestInteraction = this.latestInteraction;
     await this.client.updatePage(newPage, newPage.state);
+    newPage.pageDidSend?.();
     return;
   }
 
