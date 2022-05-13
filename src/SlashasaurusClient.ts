@@ -16,6 +16,7 @@ import {
   InteractionWebhook,
   Message,
   MessageComponentInteraction,
+  ModalSubmitInteraction,
   SelectMenuInteraction,
   TextBasedChannel,
 } from 'discord.js';
@@ -52,6 +53,7 @@ interface SlashasaurusClientEvents extends ClientEvents {
   selectChanged: [interaction: SelectMenuInteraction];
   contextMenuRun: [interaction: ContextMenuInteraction];
   autocomplete: [interaction: AutocompleteInteraction];
+  modalSubmit: [interaction: ModalSubmitInteraction];
 }
 
 const JSFileRegex = /(\.js|\.ts)x?$/;
@@ -703,6 +705,8 @@ export class SlashasaurusClient extends Client<true> {
     } else if (interaction.isAutocomplete()) {
       this.handleAutocomplete(interaction);
       this.emit('autocomplete', interaction);
+    } else if (interaction.isModalSubmit()) {
+      this.emit('modalSubmit', interaction);
     }
   }
 
@@ -850,6 +854,7 @@ export class SlashasaurusClient extends Client<true> {
             ? pageComponentRowsToComponents(renderedPage.components, page)
             : undefined,
           fetchReply: true,
+          flags: renderedPage.flags as any,
         });
         interaction.followUp({
           content:
@@ -895,6 +900,7 @@ export class SlashasaurusClient extends Client<true> {
             ? pageComponentRowsToComponents(renderedPage.components, page)
             : undefined,
           fetchReply: true,
+          flags: renderedPage.flags as any,
         });
         interaction.followUp({
           content:
@@ -939,6 +945,7 @@ export class SlashasaurusClient extends Client<true> {
           : undefined,
         ephemeral: true,
         fetchReply: true,
+        flags: messageOptions.flags as any,
       });
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
@@ -960,6 +967,7 @@ export class SlashasaurusClient extends Client<true> {
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : undefined,
         fetchReply: true,
+        flags: messageOptions.flags as any,
       });
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
@@ -1015,6 +1023,7 @@ export class SlashasaurusClient extends Client<true> {
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : undefined,
+        flags: messageOptions.flags as any,
       });
     } else {
       await message.edit({
@@ -1022,6 +1031,7 @@ export class SlashasaurusClient extends Client<true> {
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : undefined,
+        flags: messageOptions.flags as any,
       });
     }
     const state = await page.serializeState();

@@ -1,5 +1,5 @@
 import {
-  ApplicationCommandOptionChoice,
+  ApplicationCommandOptionChoiceData,
   AutocompleteInteraction,
   CommandInteractionOption,
   CommandOptionChannelResolvableType,
@@ -30,16 +30,18 @@ type TailOfReadonly<T extends Readonly<any[]>> = ((
   ? Tail_
   : never;
 
-type MapChoicesToValues<T extends readonly ApplicationCommandOptionChoice[]> = {
-  [K in keyof T]: T[K] extends ApplicationCommandOptionChoice
+type MapChoicesToValues<
+  T extends readonly ApplicationCommandOptionChoiceData[]
+> = {
+  [K in keyof T]: T[K] extends ApplicationCommandOptionChoiceData
     ? T[K]['value']
     : never;
 }[number];
 
 type HasChoices = {
   choices: readonly [
-    ApplicationCommandOptionChoice,
-    ...ApplicationCommandOptionChoice[]
+    ApplicationCommandOptionChoiceData,
+    ...ApplicationCommandOptionChoiceData[]
   ];
 };
 
@@ -62,6 +64,8 @@ type OptionsMap = {
   9: NonNullable<CommandInteractionOption['member' | 'role' | 'user']>;
   NUMBER: number;
   10: number;
+  ATTACHMENT: NonNullable<CommandInteractionOption['attachment']>;
+  11: NonNullable<CommandInteractionOption['attachment']>;
 };
 
 type OptionToValue<T extends ReadonlyApplicationCommandOptionData> =
@@ -124,8 +128,8 @@ interface ReadonlyApplicationCommandChoicesData
   readonly type: CommandOptionChoiceResolvableType;
   readonly choices?:
     | readonly [
-        ApplicationCommandOptionChoice,
-        ...ApplicationCommandOptionChoice[]
+        ApplicationCommandOptionChoiceData,
+        ...ApplicationCommandOptionChoiceData[]
       ];
   readonly autocomplete?: false;
 }
