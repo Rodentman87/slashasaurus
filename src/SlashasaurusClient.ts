@@ -741,6 +741,7 @@ export class SlashasaurusClient extends Client<true> {
           } else {
             optionsObj[option.name] =
               option.channel ??
+              option.attachment ??
               option.member ??
               option.message ??
               option.role ??
@@ -777,6 +778,7 @@ export class SlashasaurusClient extends Client<true> {
           } else {
             optionsObj[option.name] =
               option.channel ??
+              option.attachment ??
               option.member ??
               option.message ??
               option.role ??
