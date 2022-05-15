@@ -8,6 +8,7 @@ import {
   CommandOptionNumericResolvableType,
   ExcludeEnum,
 } from 'discord.js';
+import type { LocalizationMap } from 'discord-api-types/v9';
 import {
   ApplicationCommandOptionTypes,
   ChannelTypes,
@@ -106,7 +107,9 @@ export type MapOptionsToAutocompleteNames<
 
 interface ReadonlyBaseApplicationCommandOptionsData {
   readonly name: string;
+  readonly nameLocalizations?: LocalizationMap;
   readonly description: string;
+  readonly descriptionLocalizations?: LocalizationMap;
   readonly required?: boolean;
   readonly autocomplete?: never;
 }

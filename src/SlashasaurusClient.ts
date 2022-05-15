@@ -46,6 +46,7 @@ import {
   isChatCommand,
 } from './SlashCommandBase';
 import { PingableTimedCache } from './PingableTimedCache';
+import { TemplateModal } from './TemplateModal';
 
 interface SlashasaurusClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
@@ -185,6 +186,7 @@ export class SlashasaurusClient extends Client<true> {
   private userContextMenuMap = new Map<string, UserCommand>();
   private messageContextMenuMap = new Map<string, MessageCommand>();
   private pageMap = new Map<string, PageMapStorage>();
+  private modalMap = new Map<string, TemplateModal<any, any>>();
   logger?: Logger;
   devServerId: string;
   chatCommandMiddleware = new Pipeline<CommandRunFunction<[]>>();
@@ -683,6 +685,42 @@ export class SlashasaurusClient extends Client<true> {
     }
   }
 
+  async registerModalsFrom(path: string) {
+    const topLevel = await readdir(path);
+
+    for (const folderOrFile of topLevel) {
+      const filePath = join(path, folderOrFile);
+      if ((await stat(filePath)).isFile()) {
+        if (folderOrFile.match(JSFileRegex)) {
+          // This is a js file
+          const data = await import(filePath);
+          if (!data.default) {
+            throw new Error(
+              `Expected a default export in file ${join(
+                path,
+                folderOrFile
+              )} but didn't find one`
+            );
+          }
+          const modal = data.default;
+          if (!(modal instanceof TemplateModal)) {
+            throw new Error(
+              `Expected the default export in file ${join(
+                path,
+                folderOrFile
+              )} to be a TemplateModal`
+            );
+          }
+          this.modalMap.set(modal.customId, modal);
+        }
+      } else {
+        throw new Error(
+          `Found folder in modals directory ${join(path, folderOrFile)}`
+        );
+      }
+    }
+  }
+
   private handleInteractionEvent(interaction: Interaction) {
     this.logger?.debug(interaction);
     if (interaction.isCommand()) {
@@ -706,6 +744,7 @@ export class SlashasaurusClient extends Client<true> {
       this.handleAutocomplete(interaction);
       this.emit('autocomplete', interaction);
     } else if (interaction.isModalSubmit()) {
+      this.handleModalSubmit(interaction);
       this.emit('modalSubmit', interaction);
     }
   }
@@ -930,6 +969,18 @@ export class SlashasaurusClient extends Client<true> {
     }
     page.latestInteraction = interaction;
     page.handleId(interaction.customId.split(';')[1], interaction);
+  }
+
+  private async handleModalSubmit(interaction: ModalSubmitInteraction) {
+    const modal = this.modalMap.get(interaction.customId);
+    if (!modal) return;
+    const values: Record<string, string> = {};
+    interaction.components.forEach((row) => {
+      row.components.forEach((component) => {
+        values[component.customId] = component.value;
+      });
+    });
+    modal.handler(interaction, values);
   }
 
   async replyToInteractionWithPage(

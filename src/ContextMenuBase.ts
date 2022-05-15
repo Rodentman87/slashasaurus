@@ -4,10 +4,12 @@ import {
   UserApplicationCommandData,
   UserContextMenuInteraction,
 } from 'discord.js';
+import type { LocalizationMap } from 'discord-api-types/v9';
 import { SlashasaurusClient } from './SlashasaurusClient';
 
 type ContextCommandOptions<T extends 'MESSAGE' | 'USER'> = {
   name: string;
+  nameLocalizations?: LocalizationMap;
   type: T;
   defaultPermission?: boolean;
 };

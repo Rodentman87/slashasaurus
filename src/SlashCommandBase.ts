@@ -1,4 +1,5 @@
 import { AutocompleteInteraction, CommandInteraction } from 'discord.js';
+import type { LocalizationMap } from 'discord-api-types/v9';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import {
   MapOptionsToAutocompleteNames,
@@ -9,7 +10,9 @@ import {
 
 type ChatCommandOptions<T> = {
   name: string;
+  nameLocalizations?: LocalizationMap;
   description: string;
+  descriptionLocalizations?: LocalizationMap;
   options: T;
   defaultPermission?: boolean;
 };
