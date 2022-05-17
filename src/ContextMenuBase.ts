@@ -1,17 +1,16 @@
-import {
-  MessageApplicationCommandData,
+import type {
   MessageContextMenuInteraction,
-  UserApplicationCommandData,
   UserContextMenuInteraction,
 } from 'discord.js';
-import type { LocalizationMap } from 'discord-api-types/v9';
+import type { LocalizationMap } from 'discord-api-types/v10';
 import { SlashasaurusClient } from './SlashasaurusClient';
 
 type ContextCommandOptions<T extends 'MESSAGE' | 'USER'> = {
   name: string;
   nameLocalizations?: LocalizationMap;
   type: T;
-  defaultPermission?: boolean;
+  defaultMemberPermissions?: string | number | bigint;
+  dmPermission?: boolean;
 };
 
 export type ContextMenuHandlerType<T extends 'MESSAGE' | 'USER'> =
@@ -30,7 +29,7 @@ export function isMessageCommand(thing: any): thing is MessageCommand {
 }
 
 export class MessageCommand {
-  commandInfo: MessageApplicationCommandData;
+  commandInfo: ContextCommandOptions<'MESSAGE'>;
 
   /**
    *
@@ -56,7 +55,7 @@ export function isUserCommand(thing: any): thing is UserCommand {
 }
 
 export class UserCommand {
-  commandInfo: UserApplicationCommandData;
+  commandInfo: ContextCommandOptions<'USER'>;
 
   /**
    *

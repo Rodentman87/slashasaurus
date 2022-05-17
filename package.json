@@ -21,5 +21,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Rodentman87/slashasaurus.git"
+  },
+  "dependencies": {
+    "@discordjs/builders": "^0.14.0-dev.1652702621-5e9b757",
+    "@discordjs/rest": "^0.5.0-dev.1652702640-5e9b757",
+    "discord-api-types": "^0.33.0"
   }
 }

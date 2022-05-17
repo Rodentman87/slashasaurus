@@ -5,6 +5,7 @@ import {
   InteractionWebhook,
   Message,
   MessageActionRow,
+  MessageActionRowComponent,
   MessageButton,
   MessageComponentInteraction,
   MessageEmbed,
@@ -188,13 +189,13 @@ export type DeserializeStateFn<P = {}, S = {}> = (
 export function pageComponentRowsToComponents(
   rows: PageComponentRows,
   page: Page
-) {
+): MessageActionRow[] {
   page.clearHandlers();
   // @ts-expect-error still messing with statics
   const pageId = page.constructor.pageId;
   return rows
     .map((row) => {
-      const actionRow = new MessageActionRow();
+      const actionRow = new MessageActionRow<MessageActionRowComponent>();
       if (row instanceof PageActionRow) {
         row.children.forEach((component) => {
           actionRow.addComponents(

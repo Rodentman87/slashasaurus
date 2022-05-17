@@ -1,6 +1,4 @@
 import {
-  ApplicationCommandData,
-  ApplicationCommandOptionData,
   AutocompleteInteraction,
   Awaitable,
   BaseCommandInteraction,
@@ -44,9 +42,20 @@ import {
   CommandRunFunction,
   AutocompleteFunction,
   isChatCommand,
+  populateBuilder,
+  CommandGroupMetadata,
+  isCommandGroupMetadata,
 } from './SlashCommandBase';
 import { PingableTimedCache } from './PingableTimedCache';
 import { TemplateModal } from './TemplateModal';
+import {
+  ContextMenuCommandBuilder,
+  SlashCommandBuilder,
+  SlashCommandSubcommandBuilder,
+  SlashCommandSubcommandGroupBuilder,
+} from '@discordjs/builders';
+import { ApplicationCommandType, Routes } from 'discord-api-types/v10';
+import { REST } from '@discordjs/rest';
 
 interface SlashasaurusClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
@@ -221,12 +230,22 @@ export class SlashasaurusClient extends Client<true> {
   // guild commands will be a 0.3 thing probably tbh (lol ok that totally happened :mmLol:)
   async registerCommandsFrom(
     folderPath: string,
-    registerTo: 'global' | 'dev' | 'none'
-  ) {
+    registerTo: 'none'
+  ): Promise<void>;
+  async registerCommandsFrom(
+    folderPath: string,
+    registerTo: 'global' | 'dev',
+    token: string
+  ): Promise<void>;
+  async registerCommandsFrom(
+    folderPath: string,
+    registerTo: 'global' | 'dev' | 'none',
+    token?: string
+  ): Promise<void> {
     this.logger?.info('Registering commands');
     const topLevelFolders = await readdir(folderPath);
 
-    const commandData: ApplicationCommandData[] = [];
+    const commandData: (SlashCommandBuilder | ContextMenuCommandBuilder)[] = [];
 
     for (const folderName of topLevelFolders) {
       switch (folderName) {
@@ -250,11 +269,23 @@ export class SlashasaurusClient extends Client<true> {
 
     this.logger?.debug(commandData);
 
-    let manager = this.application!.commands;
-    if (registerTo === 'dev') {
-      manager.set(commandData, this.devServerId);
-    } else if (registerTo === 'global') {
-      manager.set(commandData);
+    if (registerTo !== 'none' && token) {
+      const rest = new REST({ version: '10' }).setToken(token);
+      if (registerTo === 'global') {
+        await rest.put(Routes.applicationCommands(this.application.id), {
+          body: commandData.map((c) => c.toJSON()),
+        });
+      } else {
+        await rest.put(
+          Routes.applicationGuildCommands(
+            this.application.id,
+            this.devServerId
+          ),
+          {
+            body: commandData.map((c) => c.toJSON()),
+          }
+        );
+      }
     }
 
     this.logger?.info('Finished registering commands');
@@ -279,7 +310,7 @@ export class SlashasaurusClient extends Client<true> {
   private async loadUserCommands(path: string) {
     const topLevel = await readdir(path);
 
-    const commandData: ApplicationCommandData[] = [];
+    const commandData: ContextMenuCommandBuilder[] = [];
 
     this.logger?.debug(
       `Loading user commands from folder, found ${topLevel.join(', ')}`
@@ -313,7 +344,17 @@ export class SlashasaurusClient extends Client<true> {
             );
           }
           this.userContextMenuMap.set(command.commandInfo.name, command);
-          commandData.push(command.commandInfo);
+          const info = command.commandInfo;
+          commandData.push(
+            new ContextMenuCommandBuilder()
+              .setName(info.name)
+              .setType(ApplicationCommandType.User)
+              .setNameLocalizations(info.nameLocalizations ?? null)
+              .setDefaultMemberPermissions(
+                info.defaultMemberPermissions ?? null
+              )
+              .setDMPermission(info.dmPermission ?? null)
+          );
           this.logger?.debug(`Loaded user command ${command.commandInfo.name}`);
         }
       } else {
@@ -331,7 +372,7 @@ export class SlashasaurusClient extends Client<true> {
   private async loadMessageCommands(path: string) {
     const topLevel = await readdir(path);
 
-    const commandData: ApplicationCommandData[] = [];
+    const commandData: ContextMenuCommandBuilder[] = [];
 
     this.logger?.debug(
       `Loading message commands from folder, found ${topLevel.join(', ')}`
@@ -365,7 +406,17 @@ export class SlashasaurusClient extends Client<true> {
             );
           }
           this.messageContextMenuMap.set(command.commandInfo.name, command);
-          commandData.push(command.commandInfo);
+          const info = command.commandInfo;
+          commandData.push(
+            new ContextMenuCommandBuilder()
+              .setName(info.name)
+              .setType(ApplicationCommandType.Message)
+              .setNameLocalizations(info.nameLocalizations ?? null)
+              .setDefaultMemberPermissions(
+                info.defaultMemberPermissions ?? null
+              )
+              .setDMPermission(info.dmPermission ?? null)
+          );
           this.logger?.debug(
             `Loaded message command ${command.commandInfo.name}`
           );
@@ -385,7 +436,7 @@ export class SlashasaurusClient extends Client<true> {
   private async loadTopLevelCommands(path: string) {
     const topLevel = await readdir(path);
 
-    const commandData: ApplicationCommandData[] = [];
+    const commandData: SlashCommandBuilder[] = [];
 
     this.logger?.debug(
       `Loading chat commands from folder, found ${topLevel.join(', ')}`
@@ -425,7 +476,9 @@ export class SlashasaurusClient extends Client<true> {
             `Adding command from ${folderOrFile} to command map`
           );
           this.commandMap.set(command.commandInfo.name, command);
-          commandData.push(command.commandInfo as any);
+          commandData.push(
+            populateBuilder(command.commandInfo, new SlashCommandBuilder())
+          );
           this.logger?.debug(`Loaded chat command ${command.commandInfo.name}`);
         }
       } else {
@@ -444,18 +497,20 @@ export class SlashasaurusClient extends Client<true> {
   private async loadSubFolderLevelOne(
     path: string,
     name: string
-  ): Promise<ApplicationCommandData> {
+  ): Promise<SlashCommandBuilder> {
     const topLevel = await readdir(path);
 
-    const commandData: ApplicationCommandOptionData[] = [];
+    const commandData: (
+      | SlashCommandSubcommandBuilder
+      | SlashCommandSubcommandGroupBuilder
+    )[] = [];
 
     this.logger?.debug(
       `Loading sub-commands from chat/${name}, found ${topLevel.join(', ')}`
     );
 
-    let metaData = {
+    let metaData: CommandGroupMetadata = {
       description: 'Default description',
-      defaultPermissions: true,
     };
 
     for (const folderOrFile of topLevel) {
@@ -467,14 +522,8 @@ export class SlashasaurusClient extends Client<true> {
         if (folderOrFile.match(/_meta(.js|.ts)x?$/)) {
           // This is the meta file which should export meta info about the command
           const data = await import(join(path, folderOrFile));
-          if (data.description && typeof data.description === 'string') {
-            metaData.description = data.description;
-          }
-          if (
-            data.defaultPermissions &&
-            typeof data.defaultPermissions === 'boolean'
-          ) {
-            metaData.defaultPermissions = data.defaultPermissions;
+          if (isCommandGroupMetadata(data)) {
+            metaData = data;
           }
         } else if (folderOrFile.match(JSFileRegex)) {
           this.logger?.debug(
@@ -506,9 +555,12 @@ export class SlashasaurusClient extends Client<true> {
             `Adding command from ${folderOrFile} to command map`
           );
           this.commandMap.set(name + '.' + command.commandInfo.name, command);
-          command.commandInfo.type = 'SUB_COMMAND';
-          // @ts-expect-error yes TS I know this isn't technically an option type, but the above fixes this
-          commandData.push(command.commandInfo);
+          commandData.push(
+            populateBuilder(
+              command.commandInfo,
+              new SlashCommandSubcommandBuilder()
+            )
+          );
           this.logger?.debug(
             `Loaded chat command ${name}.${command.commandInfo.name}`
           );
@@ -527,22 +579,33 @@ export class SlashasaurusClient extends Client<true> {
 
     this.logger?.debug(`Finished loading sub-commands from chat/${name}`);
 
-    return {
-      type: 'CHAT_INPUT',
-      name,
-      ...metaData,
-      options: commandData,
-    };
+    const builder = new SlashCommandBuilder()
+      .setName(name)
+      .setNameLocalizations(metaData.nameLocalizations ?? null)
+      .setDescription(metaData.description)
+      .setDescriptionLocalizations(metaData.descriptionLocalizations ?? null)
+      .setDefaultMemberPermissions(metaData.defaultMemberPermissions ?? null)
+      .setDMPermission(metaData.dmPermission ?? null);
+
+    commandData.forEach((subcommand) => {
+      if (subcommand instanceof SlashCommandSubcommandBuilder) {
+        builder.addSubcommand(subcommand);
+      } else {
+        builder.addSubcommandGroup(subcommand);
+      }
+    });
+
+    return builder;
   }
 
   private async loadSubFolderLevelTwo(
     path: string,
     name: string,
     parentName: string
-  ): Promise<ApplicationCommandOptionData> {
+  ): Promise<SlashCommandSubcommandGroupBuilder> {
     const topLevel = await readdir(path);
 
-    const commandData: ApplicationCommandOptionData[] = [];
+    const commandData: SlashCommandSubcommandBuilder[] = [];
 
     this.logger?.debug(
       `Loading sub-commands from chat/${parentName}/${name}, found ${topLevel.join(
@@ -550,9 +613,8 @@ export class SlashasaurusClient extends Client<true> {
       )}`
     );
 
-    let metaData = {
+    let metaData: CommandGroupMetadata = {
       description: 'Default description',
-      defaultPermissions: true,
     };
 
     for (const folderOrFile of topLevel) {
@@ -562,14 +624,8 @@ export class SlashasaurusClient extends Client<true> {
         if (folderOrFile.match(/_meta(.js|.ts)x?$/)) {
           // This is the meta file which should export meta info about the command
           const data = await import(join(path, folderOrFile));
-          if (data.description && typeof data.description === 'string') {
-            metaData.description = data.description;
-          }
-          if (
-            data.defaultPermissions &&
-            typeof data.defaultPermissions === 'boolean'
-          ) {
-            metaData.defaultPermissions = data.defaultPermissions;
+          if (isCommandGroupMetadata(data)) {
+            metaData = data;
           }
         } else if (folderOrFile.match(JSFileRegex)) {
           this.logger?.debug(
@@ -603,9 +659,12 @@ export class SlashasaurusClient extends Client<true> {
             parentName + '.' + name + '.' + command.commandInfo.name,
             command
           );
-          command.commandInfo.type = 'SUB_COMMAND';
-          // @ts-expect-error yes TS I know this isn't technically an option type, but the above fixes this
-          commandData.push(command.commandInfo);
+          commandData.push(
+            populateBuilder(
+              command.commandInfo,
+              new SlashCommandSubcommandBuilder()
+            )
+          );
           this.logger?.debug(
             `Loaded chat command ${parentName}.${name}.${command.commandInfo.name}`
           );
@@ -617,13 +676,17 @@ export class SlashasaurusClient extends Client<true> {
       `Finished loading sub-commands from chat/${parentName}/${name}`
     );
 
-    return {
-      type: 'SUB_COMMAND_GROUP',
-      name,
-      ...metaData,
-      // @ts-expect-error yes TS I know this isn't the right type
-      options: commandData,
-    };
+    const builder = new SlashCommandSubcommandGroupBuilder()
+      .setName(name)
+      .setNameLocalizations(metaData.nameLocalizations ?? null)
+      .setDescription(metaData.description)
+      .setDescriptionLocalizations(metaData.descriptionLocalizations ?? null);
+
+    commandData.forEach((subcommand) => {
+      builder.addSubcommand(subcommand);
+    });
+
+    return builder;
   }
 
   async registerPagesFrom(path: string) {
@@ -862,7 +925,7 @@ export class SlashasaurusClient extends Client<true> {
           ...renderedPage,
           components: renderedPage.components
             ? pageComponentRowsToComponents(renderedPage.components, page)
-            : undefined,
+            : [],
           fetchReply: true,
           flags: renderedPage.flags as any,
         });
@@ -908,7 +971,7 @@ export class SlashasaurusClient extends Client<true> {
           ...renderedPage,
           components: renderedPage.components
             ? pageComponentRowsToComponents(renderedPage.components, page)
-            : undefined,
+            : [],
           fetchReply: true,
           flags: renderedPage.flags as any,
         });
@@ -964,7 +1027,7 @@ export class SlashasaurusClient extends Client<true> {
         ...messageOptions,
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
-          : undefined,
+          : [],
         ephemeral: true,
         fetchReply: true,
         flags: messageOptions.flags as any,
@@ -987,7 +1050,7 @@ export class SlashasaurusClient extends Client<true> {
         ...messageOptions,
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
-          : undefined,
+          : [],
         fetchReply: true,
         flags: messageOptions.flags as any,
       });
@@ -1014,7 +1077,7 @@ export class SlashasaurusClient extends Client<true> {
       ...messageOptions,
       components: messageOptions.components
         ? pageComponentRowsToComponents(messageOptions.components, page)
-        : undefined,
+        : [],
     });
     page.message = message;
     const state = await page.serializeState();
@@ -1044,7 +1107,7 @@ export class SlashasaurusClient extends Client<true> {
         ...messageOptions,
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
-          : undefined,
+          : [],
         flags: messageOptions.flags as any,
       });
     } else {
@@ -1052,7 +1115,7 @@ export class SlashasaurusClient extends Client<true> {
         ...messageOptions,
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
-          : undefined,
+          : [],
         flags: messageOptions.flags as any,
       });
     }

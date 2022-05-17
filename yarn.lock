@@ -14,10 +14,39 @@
     ts-mixer "^6.0.1"
     tslib "^2.3.1"
 
+"@discordjs/builders@^0.14.0-dev.1652702621-5e9b757":
+  version "0.14.0-dev.1652702621-5e9b757"
+  resolved "https://registry.yarnpkg.com/@discordjs/builders/-/builders-0.14.0-dev.1652702621-5e9b757.tgz#0d7e8e3fa8e0a041eea74e1003322c5ad97e6dbf"
+  integrity sha512-bWVuvLfYNkK5ph5E6sa/knDfmXQAdMKf0ncO6hbPnBOTlqwrZ70T6DMjhYx6IcqdFNf2PMcKTgMdLX+3XZTn7g==
+  dependencies:
+    "@sapphire/shapeshift" "^3.0.0"
+    "@sindresorhus/is" "^4.6.0"
+    discord-api-types "^0.32.1"
+    fast-deep-equal "^3.1.3"
+    ts-mixer "^6.0.1"
+    tslib "^2.3.1"
+
 "@discordjs/collection@^0.6.0":
   version "0.6.0"
   resolved "https://registry.yarnpkg.com/@discordjs/collection/-/collection-0.6.0.tgz#ee9c7b349a61d081fcdbda36df4187e575510952"
   integrity sha512-Ieaetb36l0nmAS5X9Upqk4W7euAO6FdXPxn3I8vBAKEcoIzEZI1mcVcPfCfagGJZSgBKpENnAnKkP4GAn+MV8w==
+
+"@discordjs/collection@^0.7.0-dev":
+  version "0.7.0-dev.1652702622-5e9b757"
+  resolved "https://registry.yarnpkg.com/@discordjs/collection/-/collection-0.7.0-dev.1652702622-5e9b757.tgz#e0e83563c983e2d9fbed11a5c4557c33aea330f4"
+  integrity sha512-846Aq5V/diKb5dHNGMOd67PR4L2V0ZJOb7UiDguO/nHHnraPuu8XknYMF46P8ElA7gXMX/nq83gd6eDBHoJXvA==
+
+"@discordjs/rest@^0.5.0-dev.1652702640-5e9b757":
+  version "0.5.0-dev.1652702640-5e9b757"
+  resolved "https://registry.yarnpkg.com/@discordjs/rest/-/rest-0.5.0-dev.1652702640-5e9b757.tgz#a25dc091ddd440797bb46d5fed0cd6633b768103"
+  integrity sha512-2KpNaaWCCRQu7JEkHzz2TnM7fejLiT9FtY3E4SEbU9jOuNkC1NuszIymLW8BcwbGzA8/EOutlGNuoV4LqPik0A==
+  dependencies:
+    "@discordjs/collection" "^0.7.0-dev"
+    "@sapphire/async-queue" "^1.3.1"
+    "@sapphire/snowflake" "^3.2.1"
+    discord-api-types "^0.32.1"
+    tslib "^2.3.1"
+    undici "^5.2.0"
 
 "@sapphire/async-queue@^1.3.1":
   version "1.3.1"
@@ -28,6 +57,16 @@
   version "2.2.0"
   resolved "https://registry.yarnpkg.com/@sapphire/shapeshift/-/shapeshift-2.2.0.tgz#9c1221b538fd0f966766158176c686a3a5c98490"
   integrity sha512-UEnKgMlQyI0yY/q+lCMX0VJft9y86IsesgbIQj6e62FBYSaMVr+IaMNpi4z45Q14VnuMACbK0yrbHISNqgUYcQ==
+
+"@sapphire/shapeshift@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/@sapphire/shapeshift/-/shapeshift-3.0.0.tgz#53a35bedcacbc9d4c566c12610598d27b51d04e1"
+  integrity sha512-LTVj/a70UDzjOFaViMGpVzSzKYD2pBk0TmZIHnBf4vnytV7TK/L6XVN6hslq7R+qwRZyL/mzIldu6mAV6r7vzA==
+
+"@sapphire/snowflake@^3.2.1":
+  version "3.2.2"
+  resolved "https://registry.yarnpkg.com/@sapphire/snowflake/-/snowflake-3.2.2.tgz#faacdc1b5f7c43145a71eddba917de2b707ef780"
+  integrity sha512-ula2O0kpSZtX9rKXNeQMrHwNd7E4jPDJYUXmEGTFdMRfyfMw+FPyh04oKMjAiDuOi64bYgVkOV3MjK+loImFhQ==
 
 "@sindresorhus/is@^4.6.0":
   version "4.6.0"
@@ -103,6 +142,16 @@ discord-api-types@^0.31.1:
   version "0.31.2"
   resolved "https://registry.yarnpkg.com/discord-api-types/-/discord-api-types-0.31.2.tgz#8d131e25340bd695815af3bb77128a6993c1b516"
   integrity sha512-gpzXTvFVg7AjKVVJFH0oJGC0q0tO34iJGSHZNz9u3aqLxlD6LfxEs9wWVVikJqn9gra940oUTaPFizCkRDcEiA==
+
+discord-api-types@^0.32.1:
+  version "0.32.1"
+  resolved "https://registry.yarnpkg.com/discord-api-types/-/discord-api-types-0.32.1.tgz#c468ec31a1ac2565673619ba1e0d35f01d339a65"
+  integrity sha512-/ewl0CPYT5xjOC+SJ7wADJKjtpZfiiUaYXOP/Ns54lnBcv4Xqa4iKSqRF/w1fjiUvWTYN9W8UuOiyCHtmu5fJw==
+
+discord-api-types@^0.33.0:
+  version "0.33.0"
+  resolved "https://registry.yarnpkg.com/discord-api-types/-/discord-api-types-0.33.0.tgz#4c20b3a85b6d78ce71954a506e98b98ac3105661"
+  integrity sha512-RS1dMM6xuMhdHwQJ0T+XuCD7v1tKnyZ89Eq6q/DbOJWMbIh3ihgAzDhcF70QsFCtk9a5Gn9XU29S7eoEXuwQ5w==
 
 discord.js@^13.7.0:
   version "13.7.0"
@@ -241,6 +290,11 @@ typescript@4.5.5:
   version "4.5.5"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.5.5.tgz#d8c953832d28924a9e3d37c73d729c846c5896f3"
   integrity sha512-TCTIul70LyWe6IJWT8QSYeA54WQe8EjQFU4wY52Fasj5UKx88LNYKCgBEHcOMOrFF1rKGbD8v/xcNWVUq9SymA==
+
+undici@^5.2.0:
+  version "5.2.0"
+  resolved "https://registry.yarnpkg.com/undici/-/undici-5.2.0.tgz#18c5bd59f8f1b1ed8dcc9dca2f754c44ec994059"
+  integrity sha512-XY6+NS3WH9b3TKOHeNz2CjR+qrVz/k4fO9g3etPpLozRvULoQmZ1+dk9JbIz40ehn27xzFk4jYVU2MU3Nle62A==
 
 webidl-conversions@^3.0.0:
   version "3.0.1"

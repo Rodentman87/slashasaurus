@@ -1,8 +1,8 @@
 import { AutocompleteInteraction, CommandInteraction } from 'discord.js';
 import {
-  ApplicationCommandOptionType,
   LocalizationMap,
-} from 'discord-api-types/v9';
+  ApplicationCommandOptionType,
+} from 'discord-api-types/v10';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import {
   MapOptionsToAutocompleteNames,
@@ -11,15 +11,56 @@ import {
 } from './utilityTypes';
 import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
 import { ValidationError } from './CustomErrors';
+import {
+  SlashCommandAttachmentOption,
+  SlashCommandBooleanOption,
+  SlashCommandBuilder,
+  SlashCommandChannelOption,
+  SlashCommandIntegerOption,
+  SlashCommandMentionableOption,
+  SlashCommandNumberOption,
+  SlashCommandRoleOption,
+  SlashCommandStringOption,
+  SlashCommandSubcommandBuilder,
+  SlashCommandUserOption,
+} from '@discordjs/builders';
 
-type ChatCommandOptions<T> = {
+type ChatCommandOptions<T extends OptionsDataArray> = {
   name: string;
   nameLocalizations?: LocalizationMap;
   description: string;
   descriptionLocalizations?: LocalizationMap;
   options: T;
-  defaultPermission?: boolean;
+  defaultMemberPermissions?: string | number | bigint;
+  dmPermission?: boolean;
 };
+
+export type CommandGroupMetadata = {
+  nameLocalizations?: LocalizationMap;
+  description: string;
+  descriptionLocalizations?: LocalizationMap;
+  defaultMemberPermissions?: string | number | bigint;
+  dmPermission?: boolean;
+};
+
+export function isCommandGroupMetadata(arg: any): arg is CommandGroupMetadata {
+  for (const key in arg) {
+    if (key === 'description' && typeof arg[key] !== 'string') return false;
+    if (key === 'descriptionLocalizations' && typeof arg[key] !== 'object')
+      return false;
+    if (
+      key === 'defaultMemberPermissions' &&
+      !(
+        typeof arg[key] === 'number' ||
+        typeof arg[key] === 'string' ||
+        typeof arg[key] === 'bigint'
+      )
+    )
+      return false;
+    if (key === 'dmPermission' && typeof arg[key] !== 'boolean') return false;
+  }
+  return true;
+}
 
 export type CommandRunFunction<T extends OptionsDataArray> = (
   interaction: CommandInteraction,
@@ -227,4 +268,155 @@ function getDataForType(
     case ApplicationCommandOptionType.Attachment:
       return interaction.options.getAttachment(name, required);
   }
+}
+
+export function populateBuilder<
+  T extends SlashCommandBuilder | SlashCommandSubcommandBuilder
+>(info: ChatCommandOptions<any>, builder: T) {
+  builder
+    .setName(info.name)
+    .setNameLocalizations(info.nameLocalizations ?? null)
+    .setDescription(info.description)
+    .setDescriptionLocalizations(info.descriptionLocalizations ?? null);
+  if (builder instanceof SlashCommandBuilder) {
+    builder
+      .setDefaultMemberPermissions(info.defaultMemberPermissions)
+      .setDMPermission(info.dmPermission);
+  }
+  info.options.forEach((option: ApplicationCommandOptionData) => {
+    switch (option.type) {
+      case ApplicationCommandOptionType.String:
+      case 'STRING':
+        const string = new SlashCommandStringOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false)
+          .setAutocomplete(option.autocomplete ?? false);
+        if ('choices' in option && option.choices) {
+          string.setChoices(
+            ...option.choices.map((choice) => ({
+              name: choice.name,
+              name_localizations: choice.nameLocalizations ?? null,
+              value: choice.value as string,
+            }))
+          );
+        }
+        builder.addStringOption(string);
+        break;
+      case ApplicationCommandOptionType.Integer:
+      case 'INTEGER':
+        const integer = new SlashCommandIntegerOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false)
+          .setAutocomplete(option.autocomplete ?? false);
+        if ('minValue' in option && option.minValue)
+          integer.setMinValue(option.minValue);
+        if ('maxValue' in option && option.maxValue)
+          integer.setMaxValue(option.maxValue);
+        if ('choices' in option && option.choices) {
+          integer.setChoices(
+            ...option.choices.map((choice) => ({
+              name: choice.name,
+              name_localizations: choice.nameLocalizations ?? null,
+              value: choice.value as number,
+            }))
+          );
+        }
+        builder.addIntegerOption(integer);
+        break;
+      case ApplicationCommandOptionType.Boolean:
+      case 'BOOLEAN':
+        const boolean = new SlashCommandBooleanOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false);
+        builder.addBooleanOption(boolean);
+        break;
+      case ApplicationCommandOptionType.User:
+      case 'USER':
+        const user = new SlashCommandUserOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false);
+        builder.addUserOption(user);
+        break;
+      case ApplicationCommandOptionType.Channel:
+      case 'CHANNEL':
+        const channel = new SlashCommandChannelOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false);
+        if (option.channelTypes) {
+          channel.addChannelTypes(...option.channelTypes);
+        }
+        builder.addChannelOption(channel);
+        break;
+      case ApplicationCommandOptionType.Role:
+      case 'ROLE':
+        const role = new SlashCommandRoleOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false);
+        builder.addRoleOption(role);
+        break;
+      case ApplicationCommandOptionType.Mentionable:
+      case 'MENTIONABLE':
+        const mentionable = new SlashCommandMentionableOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false);
+        builder.addMentionableOption(mentionable);
+        break;
+      case ApplicationCommandOptionType.Number:
+      case 'NUMBER':
+        const number = new SlashCommandNumberOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false)
+          .setAutocomplete(option.autocomplete ?? false);
+        if ('minValue' in option && option.minValue)
+          number.setMinValue(option.minValue);
+        if ('maxValue' in option && option.maxValue)
+          number.setMaxValue(option.maxValue);
+        if ('choices' in option && option.choices) {
+          number.setChoices(
+            ...option.choices.map((choice) => ({
+              name: choice.name,
+              name_localizations: choice.nameLocalizations ?? null,
+              value: choice.value as number,
+            }))
+          );
+        }
+        builder.addNumberOption(number);
+        break;
+      case ApplicationCommandOptionType.Attachment:
+      case 'ATTACHMENT':
+        const attachment = new SlashCommandAttachmentOption()
+          .setName(option.name)
+          .setNameLocalizations(option.nameLocalizations ?? null)
+          .setDescription(option.description)
+          .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
+          .setRequired(option.required ?? false);
+        builder.addAttachmentOption(attachment);
+        break;
+    }
+  });
+  return builder;
 }
