@@ -122,8 +122,12 @@ interface ReadonlyApplicationCommandNonOptionsData
 interface ReadonlyApplicationCommandChannelOptionData
   extends ReadonlyBaseApplicationCommandOptionsData {
   readonly type: CommandOptionChannelResolvableType;
-  readonly channelTypes?: ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>[];
-  readonly channel_types?: Exclude<ChannelTypes, ChannelTypes.UNKNOWN>[];
+  readonly channelTypes?: ReadonlyArray<
+    ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>
+  >;
+  readonly channel_types?: ReadonlyArray<
+    Exclude<ChannelTypes, ChannelTypes.UNKNOWN>
+  >;
 }
 
 interface ReadonlyApplicationCommandChoicesData
