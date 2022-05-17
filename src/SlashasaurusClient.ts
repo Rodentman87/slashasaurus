@@ -767,28 +767,15 @@ export class SlashasaurusClient extends Client<true> {
       throw new Error(`Unregistered command ${commandName} was run`);
     } else {
       this.logger?.info(`Running command ${commandName}`);
-      const data = interaction.options.data;
-      const optionsObj: Record<string, any> = {};
-      await Promise.all(
-        data.map((option) => {
-          if (command.transformersMap.has(option.name)) {
-            return command.transformersMap.get(option.name)!(
-              option.value as string | number
-            ).then((value: any) => {
-              optionsObj[option.name] = value;
-            });
-          } else {
-            optionsObj[option.name] =
-              option.channel ??
-              option.attachment ??
-              option.member ??
-              option.message ??
-              option.role ??
-              option.user ??
-              option.value;
-          }
-        })
-      );
+      const optionsObj = await command.validateAndTransformOptions(interaction);
+      // If there is errors, we want to send them back to the user
+      if (Array.isArray(optionsObj)) {
+        await interaction.reply({
+          content: optionsObj.join('\n'),
+          ephemeral: true,
+        });
+        return;
+      }
       await this.chatCommandMiddleware.execute(
         command.run,
         interaction,
@@ -804,27 +791,9 @@ export class SlashasaurusClient extends Client<true> {
     if (!command) {
       interaction.respond([]);
     } else {
-      const data = interaction.options.data;
-      const optionsObj: Record<string, any> = {};
-      await Promise.all(
-        data.map((option) => {
-          if (command.transformersMap.has(option.name)) {
-            return command.transformersMap.get(option.name)!(
-              option.value as string | number
-            ).then((value: any) => {
-              optionsObj[option.name] = value;
-            });
-          } else {
-            optionsObj[option.name] =
-              option.channel ??
-              option.attachment ??
-              option.member ??
-              option.message ??
-              option.role ??
-              option.user ??
-              option.value;
-          }
-        })
+      const optionsObj = await command.validateAndTransformOptions(
+        interaction,
+        true
       );
       const focused = interaction.options.getFocused(true);
       const autocompleteFn = command.autocompleteMap.get(focused.name);

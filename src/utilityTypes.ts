@@ -1,19 +1,18 @@
+import { APIInteractionDataResolvedChannel } from 'discord-api-types/v9';
 import {
   ApplicationCommandOptionChoiceData,
-  AutocompleteInteraction,
+  CategoryChannel,
   CommandInteractionOption,
-  CommandOptionChannelResolvableType,
-  CommandOptionChoiceResolvableType,
-  CommandOptionNonChoiceResolvableType,
-  CommandOptionNumericResolvableType,
   ExcludeEnum,
+  NewsChannel,
+  StageChannel,
+  StoreChannel,
+  TextChannel,
+  ThreadChannel,
+  VoiceChannel,
 } from 'discord.js';
-import type { LocalizationMap } from 'discord-api-types/v9';
-import {
-  ApplicationCommandOptionTypes,
-  ChannelTypes,
-} from 'discord.js/typings/enums';
-import { SlashasaurusClient } from './SlashasaurusClient';
+import { ChannelTypes } from 'discord.js/typings/enums';
+import { OptionsDataArray, ApplicationCommandOptionData } from './OptionTypes';
 
 export type ExtractArrayType<T> = ((a: T) => any) extends (
   a: Array<infer H>
@@ -46,7 +45,7 @@ type HasChoices = {
   ];
 };
 
-type OptionsMap = {
+export type OptionsMap = {
   STRING: string;
   3: string;
   INTEGER: number;
@@ -69,12 +68,54 @@ type OptionsMap = {
   11: NonNullable<CommandInteractionOption['attachment']>;
 };
 
-type OptionToValue<T extends ReadonlyApplicationCommandOptionData> =
-  T extends HasChoices
-    ? MapChoicesToValues<T['choices']>
-    : T extends { transformer: (value: string | number) => unknown }
-    ? Awaited<ReturnType<T['transformer']>>
-    : OptionsMap[T['type']];
+type ChannelsMap = {
+  GUILD_TEXT: TextChannel;
+  0: TextChannel;
+  DM: never;
+  1: never;
+  GUILD_VOICE: VoiceChannel;
+  2: VoiceChannel;
+  GROUP_DM: never;
+  3: never;
+  GUILD_CATEGORY: CategoryChannel;
+  4: CategoryChannel;
+  GUILD_NEWS: NewsChannel;
+  5: NewsChannel;
+  GUILD_STORE: StoreChannel;
+  6: StoreChannel;
+  GUILD_NEWS_THREAD: ThreadChannel;
+  10: ThreadChannel;
+  GUILD_PUBLIC_THREAD: ThreadChannel;
+  11: ThreadChannel;
+  GUILD_PRIVATE_THREAD: ThreadChannel;
+  12: ThreadChannel;
+  GUILD_STAGE_VOICE: StageChannel;
+  13: StageChannel;
+  GUILD_DIRECTORY: never;
+  14: never;
+};
+
+type MapChannelTypesToChannels<
+  T extends ReadonlyArray<ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>>
+> = {
+  [K in keyof T]: T[K] extends ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>
+    ? ChannelsMap[T[K]]
+    : never;
+}[number];
+
+type OptionToValue<T extends ApplicationCommandOptionData> = T extends {
+  transformer: (value: string | number) => unknown;
+}
+  ? Awaited<ReturnType<T['transformer']>>
+  : T extends HasChoices
+  ? MapChoicesToValues<T['choices']>
+  : T extends {
+      channelTypes: ReadonlyArray<ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>>;
+    }
+  ?
+      | MapChannelTypesToChannels<T['channelTypes']>
+      | APIInteractionDataResolvedChannel
+  : OptionsMap[T['type']];
 
 export type CommandOptionsObject<T extends OptionsDataArray> = {
   [Key in T[number]['name']]: Extract<
@@ -85,18 +126,17 @@ export type CommandOptionsObject<T extends OptionsDataArray> = {
     : OptionToValue<Extract<T[number], { name: Key }>> | null;
 };
 
-type MapOptionToAutocompleteName<
-  T extends ReadonlyApplicationCommandOptionData
-> = T extends { autocomplete: true }
-  ? T extends {
-      onAutocomplete: Function;
-    }
-    ? never
-    : T['name']
-  : never;
+type MapOptionToAutocompleteName<T extends ApplicationCommandOptionData> =
+  T extends { autocomplete: true }
+    ? T extends {
+        onAutocomplete: Function;
+      }
+      ? never
+      : T['name']
+    : never;
 
 export type MapOptionsToAutocompleteNames<
-  T extends readonly ReadonlyApplicationCommandOptionData[]
+  T extends readonly ApplicationCommandOptionData[]
 > = LengthOfReadonly<T> extends 0
   ? never
   : LengthOfReadonly<T> extends 1
@@ -104,82 +144,3 @@ export type MapOptionsToAutocompleteNames<
   :
       | MapOptionToAutocompleteName<HeadOfReadonly<T>>
       | MapOptionsToAutocompleteNames<TailOfReadonly<T>>;
-
-interface ReadonlyBaseApplicationCommandOptionsData {
-  readonly name: string;
-  readonly nameLocalizations?: LocalizationMap;
-  readonly description: string;
-  readonly descriptionLocalizations?: LocalizationMap;
-  readonly required?: boolean;
-  readonly autocomplete?: never;
-}
-
-interface ReadonlyApplicationCommandNonOptionsData
-  extends ReadonlyBaseApplicationCommandOptionsData {
-  readonly type: CommandOptionNonChoiceResolvableType;
-}
-
-interface ReadonlyApplicationCommandChannelOptionData
-  extends ReadonlyBaseApplicationCommandOptionsData {
-  readonly type: CommandOptionChannelResolvableType;
-  readonly channelTypes?: ReadonlyArray<
-    ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>
-  >;
-  readonly channel_types?: ReadonlyArray<
-    Exclude<ChannelTypes, ChannelTypes.UNKNOWN>
-  >;
-}
-
-interface ReadonlyApplicationCommandChoicesData
-  extends Omit<ReadonlyBaseApplicationCommandOptionsData, 'autocomplete'> {
-  readonly type: CommandOptionChoiceResolvableType;
-  readonly choices?:
-    | readonly [
-        ApplicationCommandOptionChoiceData,
-        ...ApplicationCommandOptionChoiceData[]
-      ];
-  readonly autocomplete?: false;
-}
-
-type AutocompletableTypes =
-  | 'STRING'
-  | 'NUMBER'
-  | 'INTEGER'
-  | ApplicationCommandOptionTypes.STRING
-  | ApplicationCommandOptionTypes.NUMBER
-  | ApplicationCommandOptionTypes.INTEGER;
-
-interface ReadonlyApplicationCommandAutocompleteOption
-  extends Omit<ReadonlyBaseApplicationCommandOptionsData, 'autocomplete'> {
-  readonly type: AutocompletableTypes;
-  readonly autocomplete: true;
-  readonly onAutocomplete?: (
-    interaction: AutocompleteInteraction,
-    value: string | number,
-    client: SlashasaurusClient
-  ) => void;
-  readonly transformer?: (value: string | number) => unknown;
-}
-
-interface ReadonlyApplicationCommandNumericOptionData
-  extends ReadonlyBaseApplicationCommandOptionsData {
-  readonly type: CommandOptionNumericResolvableType;
-  readonly minValue?: number;
-  readonly min_value?: number;
-  readonly maxValue?: number;
-  readonly max_value?: number;
-}
-
-export type ReadonlyApplicationCommandOptionData =
-  | ReadonlyApplicationCommandNonOptionsData
-  | ReadonlyApplicationCommandChannelOptionData
-  | ReadonlyApplicationCommandChoicesData
-  | ReadonlyApplicationCommandAutocompleteOption
-  | ReadonlyApplicationCommandNumericOptionData;
-
-export type OptionsDataArray =
-  | readonly [
-      ReadonlyApplicationCommandOptionData,
-      ...ReadonlyApplicationCommandOptionData[]
-    ]
-  | readonly [];

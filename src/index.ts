@@ -4,5 +4,7 @@ export * from './SlashCommandBase';
 export * from './Page';
 export { Middleware } from './MiddlewarePipeline';
 export * from './utilityTypes';
+export * from './CustomErrors';
+export * from './OptionTypes';
 export * from './PageComponents';
 export { TemplateModal } from './TemplateModal';

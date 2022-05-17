@@ -1,12 +1,16 @@
 import { AutocompleteInteraction, CommandInteraction } from 'discord.js';
-import type { LocalizationMap } from 'discord-api-types/v9';
+import {
+  ApplicationCommandOptionType,
+  LocalizationMap,
+} from 'discord-api-types/v9';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import {
   MapOptionsToAutocompleteNames,
   CommandOptionsObject,
-  OptionsDataArray,
   MaybePromise,
 } from './utilityTypes';
+import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
+import { ValidationError } from './CustomErrors';
 
 type ChatCommandOptions<T> = {
   name: string;
@@ -49,13 +53,19 @@ export function isChatCommand(command: any): command is SlashCommand<any> {
 
 export class SlashCommand<T extends OptionsDataArray> {
   commandInfo: ChatCommandOptions<T> & { type: string };
-  transformersMap: Map<string, (value: string | number) => MaybePromise<any>> =
-    new Map();
+  validatorsMap: Map<
+    string,
+    (
+      interaction: CommandInteraction,
+      value: any
+    ) => MaybePromise<boolean | string>
+  > = new Map();
+  transformersMap: Map<string, (value: any) => MaybePromise<any>> = new Map();
   autocompleteMap: Map<
     string,
     (
       interaction: AutocompleteInteraction,
-      value: string | number,
+      value: any,
       client: SlashasaurusClient
     ) => MaybePromise<any>
   > = new Map();
@@ -71,10 +81,12 @@ export class SlashCommand<T extends OptionsDataArray> {
       type: 'CHAT_INPUT',
     };
     commandInfo.options.forEach((option) => {
-      if ('transformer' in option)
-        this.transformersMap.set(option.name, option.transformer!);
-      if ('onAutocomplete' in option)
-        this.autocompleteMap.set(option.name, option.onAutocomplete!);
+      if ('validator' in option && option.validator)
+        this.validatorsMap.set(option.name, option.validator);
+      if ('transformer' in option && option.transformer)
+        this.transformersMap.set(option.name, option.transformer);
+      if ('onAutocomplete' in option && option.onAutocomplete)
+        this.autocompleteMap.set(option.name, option.onAutocomplete);
     });
     this.run = handlers.run;
     if ('autocomplete' in handlers) this.autocomplete = handlers.autocomplete;
@@ -104,5 +116,115 @@ export class SlashCommand<T extends OptionsDataArray> {
         value: 'error',
       },
     ]);
+  }
+
+  async validateAndTransformOptions(
+    interaction: CommandInteraction
+  ): Promise<CommandOptionsObject<T> | string[]>;
+  async validateAndTransformOptions(
+    interaction: AutocompleteInteraction,
+    skipRequiredCheck: boolean
+  ): Promise<CommandOptionsObject<T>>;
+  async validateAndTransformOptions(
+    interaction: CommandInteraction | AutocompleteInteraction,
+    skipRequiredCheck: boolean = false
+  ): Promise<CommandOptionsObject<T> | string[]> {
+    const errors: string[] = [];
+    const values: Record<string, any> = {};
+    for (const option of this.commandInfo.options) {
+      // Get the option data
+      let value = getDataForType(
+        interaction,
+        option.type,
+        option.name,
+        skipRequiredCheck ? false : option.required ?? false
+      );
+
+      // If the value is undefined, assign early and continue to skip the rest of the validation and transformation
+      if (value === null) {
+        values[option.name] = null;
+        continue;
+      }
+
+      // Check if the option has a validator
+      let isValid = true;
+      if (
+        this.validatorsMap.has(option.name) &&
+        interaction instanceof CommandInteraction
+      ) {
+        // Run the validator
+        try {
+          const validateResult = await this.validatorsMap.get(option.name)!(
+            interaction,
+            value
+          );
+          if (typeof validateResult === 'string') {
+            errors.push(validateResult);
+            isValid = false;
+          }
+        } catch (e) {
+          if (e instanceof ValidationError) {
+            // This threw a validation error, add the message to our errors array
+            errors.push(e.message);
+          } else {
+            // This threw a different error, throw it
+            throw e;
+          }
+        }
+      }
+      // If the option is invalid, skip it
+      if (!isValid) continue;
+
+      // Check if the option has a transformer
+      if (this.transformersMap.has(option.name)) {
+        // Run the transformer
+        value = await this.transformersMap.get(option.name)!(value);
+      }
+
+      // Add the value to the values object
+      values[option.name] = value;
+    }
+    if (errors.length > 0) return errors;
+    return values as CommandOptionsObject<T>;
+  }
+}
+
+function getDataForType(
+  interaction: CommandInteraction | AutocompleteInteraction,
+  type: ApplicationCommandOptionData['type'],
+  name: string,
+  required: boolean
+) {
+  switch (type) {
+    case 'STRING':
+    case ApplicationCommandOptionType.String:
+      return interaction.options.getString(name, required);
+    case 'INTEGER':
+    case ApplicationCommandOptionType.Integer:
+      return interaction.options.getInteger(name, required);
+    case 'BOOLEAN':
+    case ApplicationCommandOptionType.Boolean:
+      return interaction.options.getBoolean(name, required);
+    case 'USER':
+    case ApplicationCommandOptionType.User:
+      return (
+        interaction.options.getMember(name, required) ??
+        interaction.options.getUser(name, required)
+      );
+    case 'CHANNEL':
+    case ApplicationCommandOptionType.Channel:
+      return interaction.options.getChannel(name, required);
+    case 'ROLE':
+    case ApplicationCommandOptionType.Role:
+      return interaction.options.getRole(name, required);
+    case 'MENTIONABLE':
+    case ApplicationCommandOptionType.Mentionable:
+      return interaction.options.getMentionable(name, required);
+    case 'NUMBER':
+    case ApplicationCommandOptionType.Number:
+      return interaction.options.getNumber(name, required);
+    case 'ATTACHMENT':
+    case ApplicationCommandOptionType.Attachment:
+      return interaction.options.getAttachment(name, required);
   }
 }
