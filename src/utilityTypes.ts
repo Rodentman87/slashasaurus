@@ -104,7 +104,7 @@ type MapChannelTypesToChannels<
 }[number];
 
 type OptionToValue<T extends ApplicationCommandOptionData> = T extends {
-  transformer: (value: string | number) => unknown;
+  transformer: (value: any) => unknown;
 }
   ? Awaited<ReturnType<T['transformer']>>
   : T extends HasChoices
