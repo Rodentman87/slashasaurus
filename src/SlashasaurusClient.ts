@@ -201,7 +201,7 @@ export class SlashasaurusClient extends Client<true> {
 
   constructor(djsOptions: ClientOptions, options: SlashasaurusClientOptions) {
     super(djsOptions);
-    this.logger = options.logger;
+    if (options.logger) this.logger = options.logger;
     this.devServerId = options.devServerId;
     this.activePages = new PingableTimedCache(
       options.pageTtl ?? 30000,

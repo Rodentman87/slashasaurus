@@ -81,11 +81,11 @@ export class SlashCommand<T extends OptionsDataArray> {
       type: 'CHAT_INPUT',
     };
     commandInfo.options.forEach((option) => {
-      if ('validator' in option && option.validator)
+      if ('validator' in option)
         this.validatorsMap.set(option.name, option.validator);
-      if ('transformer' in option && option.transformer)
+      if ('transformer' in option)
         this.transformersMap.set(option.name, option.transformer);
-      if ('onAutocomplete' in option && option.onAutocomplete)
+      if ('onAutocomplete' in option)
         this.autocompleteMap.set(option.name, option.onAutocomplete);
     });
     this.run = handlers.run;
