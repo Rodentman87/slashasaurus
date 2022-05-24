@@ -56,6 +56,7 @@ import {
 } from '@discordjs/builders';
 import { ApplicationCommandType, Routes } from 'discord-api-types/v10';
 import { REST } from '@discordjs/rest';
+import { MaybePromise } from './utilityTypes';
 
 interface SlashasaurusClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
@@ -108,18 +109,12 @@ type StorePageStateFn = (
   pageId: string,
   state: string,
   messageData: string
-) => void | Promise<void>;
-type GetPageStateFn = (messageId: string) =>
-  | {
-      pageId: string;
-      stateString: string;
-      messageData: string;
-    }
-  | Promise<{
-      pageId: string;
-      stateString: string;
-      messageData: string;
-    }>;
+) => MaybePromise<void>;
+type GetPageStateFn = (messageId: string) => MaybePromise<{
+  pageId: string;
+  stateString: string;
+  messageData: string;
+}>;
 
 export interface SlashasaurusClientOptions {
   /**
@@ -715,7 +710,6 @@ export class SlashasaurusClient extends Client<true> {
               )} to be a Page`
             );
           }
-          // @ts-expect-error messing with statics is fun
           if (page.pageId === DEFAULT_PAGE_ID) {
             throw new Error(
               `The page exported in ${join(
@@ -724,7 +718,6 @@ export class SlashasaurusClient extends Client<true> {
               )} does not have a static pageId set.`
             );
           }
-          // @ts-expect-error but not very functional
           page._client = this;
           if (!data.deserializeState) {
             throw new Error(
@@ -734,7 +727,6 @@ export class SlashasaurusClient extends Client<true> {
               )} but didn't find one`
             );
           }
-          // @ts-expect-error it does exist :sobbing:
           this.pageMap.set(page.pageId, {
             page,
             deserialize: data.deserializeState,
@@ -947,7 +939,6 @@ export class SlashasaurusClient extends Client<true> {
       const state = await page.serializeState();
       this.storePageState(
         page.message!.id,
-        // @ts-expect-error gonna complain about pageId on the constructor again
         page.constructor.pageId,
         state,
         messageToMessageData(page.message)
@@ -993,7 +984,6 @@ export class SlashasaurusClient extends Client<true> {
       const state = await page.serializeState();
       this.storePageState(
         page.message!.id,
-        // @ts-expect-error gonna complain about pageId on the constructor again
         page.constructor.pageId,
         state,
         messageToMessageData(page.message)
@@ -1039,7 +1029,6 @@ export class SlashasaurusClient extends Client<true> {
       const state = await page.serializeState();
       this.storePageState(
         message.id,
-        // @ts-expect-error gonna complain about pageId on the constructor again
         page.constructor.pageId,
         state,
         messageToMessageData(page.message)
@@ -1061,7 +1050,6 @@ export class SlashasaurusClient extends Client<true> {
       const state = await page.serializeState();
       this.storePageState(
         message.id,
-        // @ts-expect-error gonna complain about pageId on the constructor again
         page.constructor.pageId,
         state,
         messageToMessageData(page.message)
@@ -1083,7 +1071,6 @@ export class SlashasaurusClient extends Client<true> {
     const state = await page.serializeState();
     this.storePageState(
       message.id,
-      // @ts-expect-error gonna complain about pageId on the constructor again
       page.constructor.pageId,
       state,
       messageToMessageData(page.message)
@@ -1123,7 +1110,6 @@ export class SlashasaurusClient extends Client<true> {
     this.activePages.set(message.id, page);
     this.storePageState(
       page.message instanceof Message ? page.message.id : page.message.id,
-      // @ts-expect-error gonna complain about pageId on the constructor again
       page.constructor.pageId,
       state,
       messageToMessageData(page.message)

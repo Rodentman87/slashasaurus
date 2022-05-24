@@ -10,7 +10,7 @@ export class PingableTimedCache<T> {
   constructor(ttl: number, leaveHook?: (value: T) => void) {
     this.ttl = ttl;
     this.timer = setInterval(() => this.clear(), 1000);
-    this.leaveHook = leaveHook;
+    if (leaveHook) this.leaveHook = leaveHook;
   }
 
   public get(key: string): T | undefined {

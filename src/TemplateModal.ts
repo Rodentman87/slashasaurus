@@ -122,21 +122,18 @@ export class TemplateModal<
       customId: this.customId,
       components: this.components.map((component) => {
         const row = new MessageActionRow<ModalActionRowComponent>();
-        row.addComponents(
-          new TextInputComponent({
-            ...component,
-            style: component.style ?? 1,
-            label: replaceVariables(component.label, variables),
-            placeholder:
-              component.placeholder === undefined
-                ? undefined
-                : replaceVariables(component.placeholder, variables),
-            value:
-              component.value === undefined
-                ? undefined
-                : replaceVariables(component.value, variables),
-          })
-        );
+        const textInput = new TextInputComponent({
+          ...component,
+          style: component.style ?? 1,
+          label: replaceVariables(component.label, variables),
+        });
+        if (component.placeholder)
+          textInput.setPlaceholder(
+            replaceVariables(component.placeholder, variables)
+          );
+        if (component.value)
+          textInput.setValue(replaceVariables(component.value, variables));
+        row.addComponents(textInput);
         return row;
       }),
     });

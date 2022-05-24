@@ -58,8 +58,15 @@ export class PageInteractionReplyMessage {
   }
 }
 
+interface PageStatic<P, S> {
+  new (): Page<P, S>;
+  pageId: string;
+  _client: SlashasaurusClient;
+  deserialize: DeserializeStateFn<P, S>;
+}
+
 export interface Page<P = {}, S = {}> {
-  constructor(props: P): Page<P, S>;
+  constructor: PageStatic<P, S>;
   render(): RenderedPage | Promise<RenderedPage>;
   pageDidSend?(): void | Promise<void>;
   pageWillLeaveCache?(): void | Promise<void>;
@@ -68,22 +75,19 @@ export abstract class Page<P = {}, S = {}> {
   state: Readonly<S>;
   readonly props: Readonly<P>;
   readonly client: SlashasaurusClient;
-  static _client: SlashasaurusClient;
   handlers: Map<string, Function>;
   nextId: number;
   message: Message | PageInteractionReplyMessage | null;
-  static pageId: string = DEFAULT_PAGE_ID;
+  static pageId = DEFAULT_PAGE_ID;
   latestInteraction: MessageComponentInteraction | null = null;
 
   constructor(props: P) {
-    // @ts-expect-error this will say that _client doesn't exist on the constructor type, but it does and we're abusing that :^)
     if (!this.constructor._client)
       throw new Error(
         "This page hasn't been registered with your client, make sure that it's being registered correctly"
       );
     this.props = props;
     this.message = null;
-    // @ts-expect-error this will say that _client doesn't exist on the constructor type, but it does and we're abusing that :^)
     this.client = this.constructor._client;
     this.handlers = new Map();
   }
@@ -191,7 +195,6 @@ export function pageComponentRowsToComponents(
   page: Page
 ): MessageActionRow[] {
   page.clearHandlers();
-  // @ts-expect-error still messing with statics
   const pageId = page.constructor.pageId;
   return rows
     .map((row) => {
