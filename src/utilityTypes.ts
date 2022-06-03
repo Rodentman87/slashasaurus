@@ -2,7 +2,7 @@ import { APIInteractionDataResolvedChannel } from 'discord-api-types/v9';
 import {
   ApplicationCommandOptionChoiceData,
   CategoryChannel,
-  CommandInteractionOption,
+  CommandInteractionOptionResolver,
   ExcludeEnum,
   NewsChannel,
   StageChannel,
@@ -14,19 +14,21 @@ import {
 import { ChannelTypes } from 'discord.js/typings/enums';
 import { OptionsDataArray, ApplicationCommandOptionData } from './OptionTypes';
 
-export type ExtractArrayType<T> = ((a: T) => any) extends (
+export type ExtractArrayType<T> = ((a: T) => never) extends (
   a: Array<infer H>
-) => any
+) => never
   ? H
   : never;
 
 export type MaybePromise<T> = T | Promise<T>;
 
-type LengthOfReadonly<T extends Readonly<any[]>> = T['length'];
-type HeadOfReadonly<T extends Readonly<any[]>> = T extends [] ? never : T[0];
-type TailOfReadonly<T extends Readonly<any[]>> = ((
+type LengthOfReadonly<T extends Readonly<unknown[]>> = T['length'];
+type HeadOfReadonly<T extends Readonly<unknown[]>> = T extends []
+  ? never
+  : T[0];
+type TailOfReadonly<T extends Readonly<unknown[]>> = ((
   ...array: T
-) => any) extends (head: any, ...tail: infer Tail_) => any
+) => never) extends (head: never, ...tail: infer Tail_) => never
   ? Tail_
   : never;
 
@@ -45,27 +47,43 @@ type HasChoices = {
   ];
 };
 
+type CommandInteractionOptionResolverReturn<
+  T extends keyof CommandInteractionOptionResolver
+  // eslint-disable-next-line @typescript-eslint/ban-types
+> = CommandInteractionOptionResolver[T] extends Function
+  ? // @ts-expect-error this works, it just doesn't narrow the type here
+    NonNullable<ReturnType<CommandInteractionOptionResolver[T]>>
+  : never;
+
 export type OptionsMap = {
-  STRING: string;
-  3: string;
-  INTEGER: number;
-  4: number;
-  BOOLEAN: boolean;
-  5: boolean;
-  USER: NonNullable<CommandInteractionOption['user']>;
-  6: NonNullable<CommandInteractionOption['user']>;
-  CHANNEL: NonNullable<CommandInteractionOption['channel']>;
-  7: NonNullable<CommandInteractionOption['channel']>;
-  ROLE: NonNullable<CommandInteractionOption['role']>;
-  8: NonNullable<CommandInteractionOption['role']>;
-  MENTIONABLE: NonNullable<
-    CommandInteractionOption['member' | 'role' | 'user']
-  >;
-  9: NonNullable<CommandInteractionOption['member' | 'role' | 'user']>;
-  NUMBER: number;
-  10: number;
-  ATTACHMENT: NonNullable<CommandInteractionOption['attachment']>;
-  11: NonNullable<CommandInteractionOption['attachment']>;
+  STRING: CommandInteractionOptionResolverReturn<'getString'>;
+  3: CommandInteractionOptionResolverReturn<'getString'>;
+  INTEGER: CommandInteractionOptionResolverReturn<'getInteger'>;
+  4: CommandInteractionOptionResolverReturn<'getInteger'>;
+  BOOLEAN: CommandInteractionOptionResolverReturn<'getBoolean'>;
+  5: CommandInteractionOptionResolverReturn<'getBoolean'>;
+  USER:
+    | CommandInteractionOptionResolverReturn<'getMember'>
+    | CommandInteractionOptionResolverReturn<'getUser'>;
+  6:
+    | CommandInteractionOptionResolverReturn<'getMember'>
+    | CommandInteractionOptionResolverReturn<'getUser'>;
+  CHANNEL: CommandInteractionOptionResolverReturn<'getChannel'>;
+  7: CommandInteractionOptionResolverReturn<'getChannel'>;
+  ROLE: CommandInteractionOptionResolverReturn<'getRole'>;
+  8: CommandInteractionOptionResolverReturn<'getRole'>;
+  MENTIONABLE:
+    | CommandInteractionOptionResolverReturn<'getMember'>
+    | CommandInteractionOptionResolverReturn<'getRole'>
+    | CommandInteractionOptionResolverReturn<'getUser'>;
+  9:
+    | CommandInteractionOptionResolverReturn<'getMember'>
+    | CommandInteractionOptionResolverReturn<'getRole'>
+    | CommandInteractionOptionResolverReturn<'getUser'>;
+  NUMBER: CommandInteractionOptionResolverReturn<'getInteger'>;
+  10: CommandInteractionOptionResolverReturn<'getInteger'>;
+  ATTACHMENT: CommandInteractionOptionResolverReturn<'getAttachment'>;
+  11: CommandInteractionOptionResolverReturn<'getAttachment'>;
 };
 
 type ChannelsMap = {
@@ -104,6 +122,7 @@ type MapChannelTypesToChannels<
 }[number];
 
 type OptionToValue<T extends ApplicationCommandOptionData> = T extends {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   transformer: (value: any) => unknown;
 }
   ? Awaited<ReturnType<T['transformer']>>
@@ -129,6 +148,7 @@ export type CommandOptionsObject<T extends OptionsDataArray> = {
 type MapOptionToAutocompleteName<T extends ApplicationCommandOptionData> =
   T extends { autocomplete: true }
     ? T extends {
+        // eslint-disable-next-line @typescript-eslint/ban-types
         onAutocomplete: Function;
       }
       ? never

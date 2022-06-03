@@ -33,12 +33,23 @@ interface ExportableToDjsComponent {
 }
 
 export function createInteractable<P>(
-  component: new (props: P) => any | ((props: P) => any) | null,
+  component: new (props: P) => unknown | ((props: P) => unknown) | null,
   props: P,
-  ...children: P extends { children: any } ? P['children'][] : never
+  ...children: unknown[]
 ) {
   if (!component) return children;
-  return new component({ ...props, children });
+  try {
+    return new component({
+      ...props,
+      children: children.length > 1 ? children : children[0],
+    });
+  } catch (e) {
+    // @ts-expect-error this should work fine, this is like the only way to check that the component is a function
+    return component({
+      ...props,
+      children: children.length > 1 ? children : children[0],
+    });
+  }
 }
 
 type PageActionRowChild = PageButton | PageSelect;
@@ -76,10 +87,10 @@ export type PageLinkButtonOptions = {
 } & PageButtonLabelOptions;
 
 export class PageInteractableButton implements ExportableToDjsComponent {
-  type = 'BUTTON';
+  type: 'BUTTON' = 'BUTTON';
   handler: (interaction: ButtonInteraction) => void;
   style: NonLinkStyles = 'SECONDARY';
-  disabled: boolean = false;
+  disabled = false;
   label?: string;
   emoji?: EmojiIdentifierResolvable;
 
@@ -93,12 +104,8 @@ export class PageInteractableButton implements ExportableToDjsComponent {
 
   toDjsComponent(id: string): MessageButton {
     return new MessageButton({
+      ...this,
       customId: id,
-      style: this.style,
-      disabled: this.disabled,
-      emoji: this.emoji,
-      label: this.label,
-      type: 'BUTTON',
     });
   }
 
@@ -121,9 +128,9 @@ export class PageInteractableButton implements ExportableToDjsComponent {
 }
 
 export class PageLinkButton implements ExportableToDjsComponent {
-  type = 'BUTTON';
+  type: 'BUTTON' = 'BUTTON';
   url: string;
-  disabled: boolean = false;
+  disabled = false;
   label?: string;
   emoji?: EmojiIdentifierResolvable;
 
@@ -136,12 +143,8 @@ export class PageLinkButton implements ExportableToDjsComponent {
 
   toDjsComponent(): MessageButton {
     return new MessageButton({
+      ...this,
       style: 'LINK',
-      url: this.url,
-      disabled: this.disabled,
-      emoji: this.emoji,
-      label: this.label,
-      type: 'BUTTON',
     });
   }
 
@@ -173,13 +176,13 @@ export interface PageSelectOptions {
 }
 
 export class PageSelect implements ExportableToDjsComponent {
-  type = 'SELECT_MENU';
+  type: 'SELECT_MENU' = 'SELECT_MENU';
   handler: (interaction: SelectMenuInteraction) => void;
   options: MessageSelectOptionData[];
-  placeholder: string | null = null;
-  minValues: number = 1;
-  maxValues: number = 1;
-  disabled: boolean = false;
+  placeholder?: string;
+  minValues = 1;
+  maxValues = 1;
+  disabled = false;
 
   constructor(options: PageSelectOptions) {
     this.handler = options.handler;
@@ -192,13 +195,8 @@ export class PageSelect implements ExportableToDjsComponent {
 
   toDjsComponent(id: string) {
     return new MessageSelectMenu({
-      type: 'SELECT_MENU',
+      ...this,
       customId: id,
-      disabled: this.disabled,
-      maxValues: this.maxValues,
-      minValues: this.minValues,
-      options: this.options,
-      placeholder: this.placeholder ?? undefined,
     });
   }
 

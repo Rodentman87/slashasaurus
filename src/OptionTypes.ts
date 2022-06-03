@@ -1,11 +1,9 @@
 import type { LocalizationMap } from 'discord-api-types/v9';
-import { ApplicationCommandOptionType } from 'discord-api-types/v9';
 import {
-  AutocompleteInteraction,
-  CommandInteraction,
-  ExcludeEnum,
-} from 'discord.js';
-import { ChannelTypes } from 'discord.js/typings/enums';
+  ApplicationCommandOptionType,
+  ChannelType,
+} from 'discord-api-types/v10';
+import { AutocompleteInteraction, CommandInteraction } from 'discord.js';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import { MaybePromise, OptionsMap } from './utilityTypes';
 
@@ -139,12 +137,20 @@ type ChannelChoiceResolvableType =
   | ApplicationCommandOptionType.Channel
   | 'CHANNEL';
 
+type ValidChannelTypes =
+  | ChannelType.GuildText
+  | ChannelType.GuildVoice
+  | ChannelType.GuildCategory
+  | ChannelType.GuildNews
+  | ChannelType.GuildNewsThread
+  | ChannelType.GuildPublicThread
+  | ChannelType.GuildPrivateThread
+  | ChannelType.GuildStageVoice;
+
 interface ChannelOptionsData
   extends BaseApplicationCommandOptionsData<OptionsMap['CHANNEL']> {
   readonly type: ChannelChoiceResolvableType;
-  readonly channelTypes?: ReadonlyArray<
-    ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>
-  >;
+  readonly channelTypes?: ReadonlyArray<ValidChannelTypes>;
 }
 
 // ROLE

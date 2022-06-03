@@ -1,7 +1,9 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Middleware<T extends (...args: any[]) => any> = (
   ...args: [...Parameters<T>, () => Promise<void>]
 ) => void;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export class Pipeline<T extends (...args: any[]) => any> {
   stack: Array<Middleware<T>>;
 
