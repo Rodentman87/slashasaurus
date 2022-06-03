@@ -43,6 +43,7 @@ export interface RenderedPage
   components?: PageComponentRows;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function isPage(thing: any): thing is Page['constructor'] {
   if (!thing.prototype) return false;
   return thing.prototype instanceof Page;
@@ -62,19 +63,23 @@ interface PageStatic<P, S> {
   new (): Page<P, S>;
   pageId: string;
   _client: SlashasaurusClient;
-  deserialize: DeserializeStateFn<P, S>;
+  deserializeState: DeserializeStateFn<P, S>;
 }
 
-export interface Page<P = {}, S = {}> {
+export interface Page<P = Record<string, never>, S = Record<string, never>> {
   constructor: PageStatic<P, S>;
   render(): RenderedPage | Promise<RenderedPage>;
   pageDidSend?(): void | Promise<void>;
   pageWillLeaveCache?(): void | Promise<void>;
 }
-export abstract class Page<P = {}, S = {}> {
+export abstract class Page<
+  P = Record<string, never>,
+  S = Record<string, never>
+> {
   state: Readonly<S>;
   readonly props: Readonly<P>;
   readonly client: SlashasaurusClient;
+  // eslint-disable-next-line @typescript-eslint/ban-types
   handlers: Map<string, Function>;
   nextId: number;
   message: Message | PageInteractionReplyMessage | null;
@@ -109,7 +114,7 @@ export abstract class Page<P = {}, S = {}> {
       // Run the function to get the new state values
       nextState = nextState(this.state, this.props);
     }
-    let newState = {
+    const newState = {
       ...this.state,
     };
     Object.assign(newState, nextState);
@@ -146,7 +151,7 @@ export abstract class Page<P = {}, S = {}> {
   abstract serializeState(): string;
 
   handleId(id: string, interaction: ButtonInteraction | SelectMenuInteraction) {
-    let handler = this.handlers.get(id);
+    const handler = this.handlers.get(id);
     if (handler) {
       handler(interaction);
     } else {
@@ -159,6 +164,7 @@ export abstract class Page<P = {}, S = {}> {
     this.nextId = 0;
   }
 
+  // eslint-disable-next-line @typescript-eslint/ban-types
   registerHandler(handler: Function) {
     const id = this.nextId;
     this.nextId++;
@@ -180,7 +186,10 @@ export abstract class Page<P = {}, S = {}> {
  * @param serializedState The string that was returned previously by `serializeState()`
  * @param interaction The interaction that triggered this page to wake up
  */
-export type DeserializeStateFn<P = {}, S = {}> = (
+export type DeserializeStateFn<
+  P = Record<string, never>,
+  S = Record<string, never>
+> = (
   serializedState: string,
   interaction?: MessageComponentInteraction | CommandInteraction
 ) =>
@@ -188,11 +197,11 @@ export type DeserializeStateFn<P = {}, S = {}> = (
       props: P;
       state: S;
     }
-  | {};
+  | Record<string, never>;
 
-export function pageComponentRowsToComponents(
+export function pageComponentRowsToComponents<P, S>(
   rows: PageComponentRows,
-  page: Page
+  page: Page<P, S>
 ): MessageActionRow[] {
   page.clearHandlers();
   const pageId = page.constructor.pageId;
@@ -221,9 +230,9 @@ export function pageComponentRowsToComponents(
     );
 }
 
-function componentToDjsComponent(
+function componentToDjsComponent<P, S>(
   component: PageComponentArray[number],
-  page: Page,
+  page: Page<P, S>,
   pageId: string
 ) {
   if ('handler' in component) {
@@ -257,7 +266,7 @@ export function compareMessages(
   ) {
     // They both have components, lets compare them
     const componentsMatch = [...a.components].every((row, index) => {
-      const bRow = bComponents![index];
+      const bRow = bComponents[index];
       const bChildren = bRow instanceof PageActionRow ? bRow.children : bRow;
       if (row.components.length !== bChildren.length) return false;
       return [...bChildren].every((component, index) => {
@@ -272,13 +281,13 @@ export function compareMessages(
 
   // Check Embeds
   if (
-    // @ts-expect-error
+    // @ts-expect-error There's some weird stuff with generic intersections that breaks here, but this is fine
     a.embeds.filter((e) => e.type === 'rich').length !== (b.embeds ?? []).length
   )
     return false;
   if (a.embeds.length > 0) {
     if (
-      !b.embeds!.every((bEmbedData, index) => {
+      !(b.embeds ?? []).every((bEmbedData, index) => {
         const bEmbed =
           bEmbedData instanceof MessageEmbed
             ? bEmbedData

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { AutocompleteInteraction, CommandInteraction } from 'discord.js';
 import {
   LocalizationMap,
@@ -168,10 +169,10 @@ export class SlashCommand<T extends OptionsDataArray> {
   ): Promise<CommandOptionsObject<T>>;
   async validateAndTransformOptions(
     interaction: CommandInteraction | AutocompleteInteraction,
-    skipRequiredCheck: boolean = false
+    skipRequiredCheck = false
   ): Promise<CommandOptionsObject<T> | string[]> {
     const errors: string[] = [];
-    const values: Record<string, any> = {};
+    const values: Record<string, ReturnType<typeof getDataForType>> = {};
     for (const option of this.commandInfo.options) {
       // Get the option data
       let value = getDataForType(
@@ -194,11 +195,11 @@ export class SlashCommand<T extends OptionsDataArray> {
         interaction instanceof CommandInteraction
       ) {
         // Run the validator
+        const validator = this.validatorsMap.get(option.name);
+        if (!validator)
+          throw new Error(`Validator for ${option.name} not found`);
         try {
-          const validateResult = await this.validatorsMap.get(option.name)!(
-            interaction,
-            value
-          );
+          const validateResult = await validator(interaction, value);
           if (typeof validateResult === 'string') {
             errors.push(validateResult);
             isValid = false;
@@ -219,7 +220,10 @@ export class SlashCommand<T extends OptionsDataArray> {
       // Check if the option has a transformer
       if (this.transformersMap.has(option.name)) {
         // Run the transformer
-        value = await this.transformersMap.get(option.name)!(value);
+        const transformer = this.transformersMap.get(option.name);
+        if (!transformer)
+          throw new Error(`Transformer for ${option.name} not found`);
+        value = await transformer(value);
       }
 
       // Add the value to the values object
@@ -248,10 +252,9 @@ function getDataForType(
       return interaction.options.getBoolean(name, required);
     case 'USER':
     case ApplicationCommandOptionType.User:
-      return (
-        interaction.options.getMember(name, required) ??
-        interaction.options.getUser(name, required)
-      );
+      if (interaction.inGuild())
+        return interaction.options.getMember(name, required);
+      return interaction.options.getUser(name, required);
     case 'CHANNEL':
     case ApplicationCommandOptionType.Channel:
       return interaction.options.getChannel(name, required);
@@ -272,7 +275,7 @@ function getDataForType(
 
 export function populateBuilder<
   T extends SlashCommandBuilder | SlashCommandSubcommandBuilder
->(info: ChatCommandOptions<any>, builder: T) {
+>(info: ChatCommandOptions<[]>, builder: T) {
   builder
     .setName(info.name)
     .setNameLocalizations(info.nameLocalizations ?? null)
@@ -284,10 +287,19 @@ export function populateBuilder<
       .setDMPermission(info.dmPermission);
   }
   info.options.forEach((option: ApplicationCommandOptionData) => {
+    let string,
+      integer,
+      boolean,
+      user,
+      channel,
+      role,
+      mentionable,
+      number,
+      attachment;
     switch (option.type) {
       case ApplicationCommandOptionType.String:
       case 'STRING':
-        const string = new SlashCommandStringOption()
+        string = new SlashCommandStringOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -307,7 +319,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.Integer:
       case 'INTEGER':
-        const integer = new SlashCommandIntegerOption()
+        integer = new SlashCommandIntegerOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -331,7 +343,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.Boolean:
       case 'BOOLEAN':
-        const boolean = new SlashCommandBooleanOption()
+        boolean = new SlashCommandBooleanOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -341,7 +353,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.User:
       case 'USER':
-        const user = new SlashCommandUserOption()
+        user = new SlashCommandUserOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -351,7 +363,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.Channel:
       case 'CHANNEL':
-        const channel = new SlashCommandChannelOption()
+        channel = new SlashCommandChannelOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -364,7 +376,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.Role:
       case 'ROLE':
-        const role = new SlashCommandRoleOption()
+        role = new SlashCommandRoleOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -374,7 +386,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.Mentionable:
       case 'MENTIONABLE':
-        const mentionable = new SlashCommandMentionableOption()
+        mentionable = new SlashCommandMentionableOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -384,7 +396,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.Number:
       case 'NUMBER':
-        const number = new SlashCommandNumberOption()
+        number = new SlashCommandNumberOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)
@@ -408,7 +420,7 @@ export function populateBuilder<
         break;
       case ApplicationCommandOptionType.Attachment:
       case 'ATTACHMENT':
-        const attachment = new SlashCommandAttachmentOption()
+        attachment = new SlashCommandAttachmentOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
           .setDescription(option.description)

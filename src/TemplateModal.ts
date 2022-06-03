@@ -6,6 +6,7 @@ import {
   TextInputComponent,
   TextInputStyle,
 } from 'discord.js';
+import { TextInputStyles } from 'discord.js/typings/enums';
 
 type ExtractFromDelimiters<
   S extends string,
@@ -124,7 +125,7 @@ export class TemplateModal<
         const row = new MessageActionRow<ModalActionRowComponent>();
         const textInput = new TextInputComponent({
           ...component,
-          style: component.style ?? 1,
+          style: component.style ?? TextInputStyles.SHORT,
           label: replaceVariables(component.label, variables),
         });
         if (component.placeholder)

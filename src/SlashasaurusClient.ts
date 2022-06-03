@@ -3,6 +3,7 @@ import {
   Awaitable,
   BaseCommandInteraction,
   BaseGuildTextChannel,
+  BitFieldResolvable,
   ButtonInteraction,
   Client,
   ClientEvents,
@@ -14,6 +15,7 @@ import {
   InteractionWebhook,
   Message,
   MessageComponentInteraction,
+  MessageFlagsString,
   ModalSubmitInteraction,
   SelectMenuInteraction,
   TextBasedChannel,
@@ -124,12 +126,6 @@ export interface SlashasaurusClientOptions {
   logger?: Logger;
 
   /**
-   * This will be used to register guild commands when running the bot
-   * in development
-   */
-  devServerId: string;
-
-  /**
    * This function is used to persistently store the page state in case
    * it needs to leave the cache or the bot suddenly shuts down.
    */
@@ -149,7 +145,9 @@ export interface SlashasaurusClientOptions {
 }
 
 interface LogFn {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   <T extends object>(obj: T, msg?: string, ...args: any[]): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (msg: string, ...args: any[]): void;
 }
 
@@ -186,27 +184,28 @@ async function defaultPageGet(): Promise<{
 }
 
 export class SlashasaurusClient extends Client<true> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private commandMap = new Map<string, SlashCommand<any>>();
   private userContextMenuMap = new Map<string, UserCommand>();
   private messageContextMenuMap = new Map<string, MessageCommand>();
   private pageMap = new Map<string, PageMapStorage>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private modalMap = new Map<string, TemplateModal<any, any>>();
   logger?: Logger;
-  devServerId: string;
   chatCommandMiddleware = new Pipeline<CommandRunFunction<[]>>();
   autocompleteMiddleware = new Pipeline<AutocompleteFunction<[]>>();
   contextMenuMiddleware = new Pipeline<
     ContextMenuHandlerType<'MESSAGE'> | ContextMenuHandlerType<'USER'>
   >();
 
-  activePages: PingableTimedCache<Page>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  activePages: PingableTimedCache<Page<any, any>>;
   storePageState: StorePageStateFn;
   getPageState: GetPageStateFn;
 
   constructor(djsOptions: ClientOptions, options: SlashasaurusClientOptions) {
     super(djsOptions);
     if (options.logger) this.logger = options.logger;
-    this.devServerId = options.devServerId;
     this.activePages = new PingableTimedCache(
       options.pageTtl ?? 30000,
       (page) => page.pageWillLeaveCache?.()
@@ -225,19 +224,19 @@ export class SlashasaurusClient extends Client<true> {
   // guild commands will be a 0.3 thing probably tbh (lol ok that totally happened :mmLol:)
   async registerCommandsFrom(
     folderPath: string,
-    registerTo: 'none'
+    register: false
   ): Promise<void>;
   async registerCommandsFrom(
     folderPath: string,
-    registerTo: 'global' | 'dev',
+    register: true,
     token: string
   ): Promise<void>;
   async registerCommandsFrom(
     folderPath: string,
-    registerTo: 'global' | 'dev' | 'none',
+    register: boolean,
     token?: string
   ): Promise<void> {
-    this.logger?.info('Registering commands');
+    this.logger?.info('Registering global commands');
     const topLevelFolders = await readdir(folderPath);
 
     const commandData: (SlashCommandBuilder | ContextMenuCommandBuilder)[] = [];
@@ -264,26 +263,72 @@ export class SlashasaurusClient extends Client<true> {
 
     this.logger?.debug(commandData);
 
-    if (registerTo !== 'none' && token) {
+    if (register && token) {
       const rest = new REST({ version: '10' }).setToken(token);
-      if (registerTo === 'global') {
-        await rest.put(Routes.applicationCommands(this.application.id), {
-          body: commandData.map((c) => c.toJSON()),
-        });
-      } else {
-        await rest.put(
-          Routes.applicationGuildCommands(
-            this.application.id,
-            this.devServerId
-          ),
-          {
-            body: commandData.map((c) => c.toJSON()),
-          }
-        );
+
+      await rest.put(Routes.applicationCommands(this.application.id), {
+        body: commandData.map((c) => c.toJSON()),
+      });
+    }
+
+    this.logger?.info('Finished registering global commands');
+  }
+
+  async registerGuildCommandsFrom(
+    folderPath: string,
+    guildId: string,
+    register: false
+  ): Promise<void>;
+  async registerGuildCommandsFrom(
+    folderPath: string,
+    guildId: string,
+    register: true,
+    token: string
+  ): Promise<void>;
+  async registerGuildCommandsFrom(
+    folderPath: string,
+    guildId: string,
+    register: boolean,
+    token?: string
+  ): Promise<void> {
+    this.logger?.info(`Registering guild commands to ${guildId}`);
+    const topLevelFolders = await readdir(folderPath);
+
+    const commandData: (SlashCommandBuilder | ContextMenuCommandBuilder)[] = [];
+
+    for (const folderName of topLevelFolders) {
+      switch (folderName) {
+        case 'chat':
+          commandData.push(
+            ...(await this.loadTopLevelCommands(join(folderPath, folderName)))
+          );
+          break;
+        case 'message':
+          commandData.push(
+            ...(await this.loadMessageCommands(join(folderPath, folderName)))
+          );
+          break;
+        case 'user':
+          commandData.push(
+            ...(await this.loadUserCommands(join(folderPath, folderName)))
+          );
+          break;
       }
     }
 
-    this.logger?.info('Finished registering commands');
+    this.logger?.debug(commandData);
+
+    if (register && token) {
+      const rest = new REST({ version: '10' }).setToken(token);
+      await rest.put(
+        Routes.applicationGuildCommands(this.application.id, guildId),
+        {
+          body: commandData.map((c) => c.toJSON()),
+        }
+      );
+    }
+
+    this.logger?.info(`Finished registering guild commands to ${guildId}`);
   }
 
   useCommandMiddleware(fn: Middleware<CommandRunFunction<[]>>) {
@@ -470,6 +515,10 @@ export class SlashasaurusClient extends Client<true> {
           this.logger?.debug(
             `Adding command from ${folderOrFile} to command map`
           );
+          if (this.commandMap.has(command.commandInfo.name))
+            throw new Error(
+              `Duplicate command name ${command.commandInfo.name}`
+            );
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(
             populateBuilder(command.commandInfo, new SlashCommandBuilder())
@@ -549,7 +598,10 @@ export class SlashasaurusClient extends Client<true> {
           this.logger?.debug(
             `Adding command from ${folderOrFile} to command map`
           );
-          this.commandMap.set(name + '.' + command.commandInfo.name, command);
+          const mapName = name + '.' + command.commandInfo.name;
+          if (this.commandMap.has(mapName))
+            throw new Error(`Duplicate command name ${mapName}`);
+          this.commandMap.set(mapName, command);
           commandData.push(
             populateBuilder(
               command.commandInfo,
@@ -650,10 +702,11 @@ export class SlashasaurusClient extends Client<true> {
           this.logger?.debug(
             `Adding command from ${folderOrFile} to command map`
           );
-          this.commandMap.set(
-            parentName + '.' + name + '.' + command.commandInfo.name,
-            command
-          );
+          const mapName =
+            parentName + '.' + name + '.' + command.commandInfo.name;
+          if (this.commandMap.has(mapName))
+            throw new Error(`Duplicate command name ${mapName}`);
+          this.commandMap.set(mapName, command);
           commandData.push(
             populateBuilder(
               command.commandInfo,
@@ -719,9 +772,10 @@ export class SlashasaurusClient extends Client<true> {
             );
           }
           page._client = this;
-          if (!data.deserializeState) {
+          const deserialize = page.deserializeState ?? data.deserializeState;
+          if (!deserialize) {
             throw new Error(
-              `Expected an export named "deserializeState" in file ${join(
+              `Expected the page to have a static deserializeState function or an export named "deserializeState" in file ${join(
                 path,
                 folderOrFile
               )} but didn't find one`
@@ -729,7 +783,7 @@ export class SlashasaurusClient extends Client<true> {
           }
           this.pageMap.set(page.pageId, {
             page,
-            deserialize: data.deserializeState,
+            deserialize: deserialize,
           });
         }
       } else {
@@ -806,14 +860,14 @@ export class SlashasaurusClient extends Client<true> {
 
   private async handleCommand(interaction: CommandInteraction) {
     let commandName = interaction.commandName;
-    // @ts-ignore
+    // @ts-expect-error This is TS-private, but I know what I'm doing
     if (interaction.options._group) {
-      // @ts-ignore
+      // @ts-expect-error This is TS-private, but I know what I'm doing
       commandName += '.' + interaction.options._group;
     }
-    // @ts-ignore
+    // @ts-expect-error This is TS-private, but I know what I'm doing
     if (interaction.options._subcommand) {
-      // @ts-ignore
+      // @ts-expect-error This is TS-private, but I know what I'm doing
       commandName += '.' + interaction.options._subcommand;
     }
     const command = this.commandMap.get(commandName);
@@ -858,18 +912,18 @@ export class SlashasaurusClient extends Client<true> {
             autocompleteFn(interaction, value, client);
           },
           interaction,
-          // @ts-expect-error
+          // @ts-expect-error This will complain because the autocomplete is typed here with []
           focused.name,
           focused.value,
           this,
           optionsObj
         );
       } else {
-        // @ts-expect-error
+        // @ts-expect-error This will complain because the autocomplete is typed here with []
         await this.autocompleteMiddleware.execute(
           command.autocomplete,
           interaction,
-          // @ts-expect-error
+          // @ts-expect-error This will complain because the autocomplete is typed here with []
           focused.name,
           focused.value,
           this,
@@ -919,7 +973,10 @@ export class SlashasaurusClient extends Client<true> {
             ? pageComponentRowsToComponents(renderedPage.components, page)
             : [],
           fetchReply: true,
-          flags: renderedPage.flags as any,
+          flags: renderedPage.flags as unknown as BitFieldResolvable<
+            MessageFlagsString,
+            number
+          >,
         });
         interaction.followUp({
           content:
@@ -929,16 +986,17 @@ export class SlashasaurusClient extends Client<true> {
         return;
       }
     }
-    if (page.message instanceof PageInteractionReplyMessage) {
+    const message = page.message;
+    if (message instanceof PageInteractionReplyMessage) {
       // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
-        page.message!.id
+        message.id
       );
       // Store the updated page
       const state = await page.serializeState();
       this.storePageState(
-        page.message!.id,
+        page.message.id,
         page.constructor.pageId,
         state,
         messageToMessageData(page.message)
@@ -964,7 +1022,10 @@ export class SlashasaurusClient extends Client<true> {
             ? pageComponentRowsToComponents(renderedPage.components, page)
             : [],
           fetchReply: true,
-          flags: renderedPage.flags as any,
+          flags: renderedPage.flags as unknown as BitFieldResolvable<
+            MessageFlagsString,
+            number
+          >,
         });
         interaction.followUp({
           content:
@@ -974,16 +1035,17 @@ export class SlashasaurusClient extends Client<true> {
         return;
       }
     }
-    if (page.message instanceof PageInteractionReplyMessage) {
+    const message = page.message;
+    if (message instanceof PageInteractionReplyMessage) {
       // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
-        page.message!.id
+        message.id
       );
       // Store the updated page
       const state = await page.serializeState();
       this.storePageState(
-        page.message!.id,
+        page.message.id,
         page.constructor.pageId,
         state,
         messageToMessageData(page.message)
@@ -1005,8 +1067,8 @@ export class SlashasaurusClient extends Client<true> {
     modal.handler(interaction, values);
   }
 
-  async replyToInteractionWithPage(
-    page: Page,
+  async replyToInteractionWithPage<P, S>(
+    page: Page<P, S>,
     interaction: MessageComponentInteraction | BaseCommandInteraction,
     ephemeral: boolean
   ) {
@@ -1020,7 +1082,10 @@ export class SlashasaurusClient extends Client<true> {
           : [],
         ephemeral: true,
         fetchReply: true,
-        flags: messageOptions.flags as any,
+        flags: messageOptions.flags as unknown as BitFieldResolvable<
+          'SUPPRESS_EMBEDS' | 'EPHEMERAL',
+          number
+        >,
       });
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
@@ -1041,7 +1106,10 @@ export class SlashasaurusClient extends Client<true> {
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : [],
         fetchReply: true,
-        flags: messageOptions.flags as any,
+        flags: messageOptions.flags as unknown as BitFieldResolvable<
+          'SUPPRESS_EMBEDS' | 'EPHEMERAL',
+          number
+        >,
       });
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
@@ -1059,7 +1127,7 @@ export class SlashasaurusClient extends Client<true> {
     page.pageDidSend?.();
   }
 
-  async sendPageToChannel(page: Page, channel: TextBasedChannel) {
+  async sendPageToChannel<P, S>(page: Page<P, S>, channel: TextBasedChannel) {
     const messageOptions = await page.render();
     const message = await channel.send({
       ...messageOptions,
@@ -1079,7 +1147,7 @@ export class SlashasaurusClient extends Client<true> {
     page.pageDidSend?.();
   }
 
-  async updatePage(page: Page, newState: any) {
+  async updatePage<P, S>(page: Page<P, S>, newState: S) {
     if (!page.message)
       throw new Error('You cannot update a page before it has been sent');
     page.state = newState;
@@ -1095,7 +1163,10 @@ export class SlashasaurusClient extends Client<true> {
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : [],
-        flags: messageOptions.flags as any,
+        flags: messageOptions.flags as unknown as BitFieldResolvable<
+          MessageFlagsString,
+          number
+        >,
       });
     } else {
       await message.edit({
@@ -1103,7 +1174,10 @@ export class SlashasaurusClient extends Client<true> {
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : [],
-        flags: messageOptions.flags as any,
+        flags: messageOptions.flags as unknown as BitFieldResolvable<
+          MessageFlagsString,
+          number
+        >,
       });
     }
     const state = await page.serializeState();

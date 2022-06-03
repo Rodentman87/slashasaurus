@@ -33,12 +33,23 @@ interface ExportableToDjsComponent {
 }
 
 export function createInteractable<P>(
-  component: new (props: P) => any | ((props: P) => any) | null,
+  component: new (props: P) => unknown | ((props: P) => unknown) | null,
   props: P,
-  ...children: P extends { children: any } ? P['children'][] : never
+  ...children: unknown[]
 ) {
   if (!component) return children;
-  return new component({ ...props, children });
+  try {
+    return new component({
+      ...props,
+      children: children.length > 1 ? children : children[0],
+    });
+  } catch (e) {
+    // @ts-expect-error this should work fine, this is like the only way to check that the component is a function
+    return component({
+      ...props,
+      children: children.length > 1 ? children : children[0],
+    });
+  }
 }
 
 type PageActionRowChild = PageButton | PageSelect;
@@ -79,7 +90,7 @@ export class PageInteractableButton implements ExportableToDjsComponent {
   type: 'BUTTON' = 'BUTTON';
   handler: (interaction: ButtonInteraction) => void;
   style: NonLinkStyles = 'SECONDARY';
-  disabled: boolean = false;
+  disabled = false;
   label?: string;
   emoji?: EmojiIdentifierResolvable;
 
@@ -119,7 +130,7 @@ export class PageInteractableButton implements ExportableToDjsComponent {
 export class PageLinkButton implements ExportableToDjsComponent {
   type: 'BUTTON' = 'BUTTON';
   url: string;
-  disabled: boolean = false;
+  disabled = false;
   label?: string;
   emoji?: EmojiIdentifierResolvable;
 
@@ -169,9 +180,9 @@ export class PageSelect implements ExportableToDjsComponent {
   handler: (interaction: SelectMenuInteraction) => void;
   options: MessageSelectOptionData[];
   placeholder?: string;
-  minValues: number = 1;
-  maxValues: number = 1;
-  disabled: boolean = false;
+  minValues = 1;
+  maxValues = 1;
+  disabled = false;
 
   constructor(options: PageSelectOptions) {
     this.handler = options.handler;
