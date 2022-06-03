@@ -134,7 +134,8 @@ export abstract class Page<
     this.client.replyToInteractionWithPage(this, interaction, ephemeral);
   }
 
-  async transitionTo(newPage: Page) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async transitionTo(newPage: Page<any, any>) {
     newPage.message = this.message;
     newPage.latestInteraction = this.latestInteraction;
     await this.client.updatePage(newPage, newPage.state);
