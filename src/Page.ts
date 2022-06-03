@@ -18,6 +18,7 @@ import {
 import { MessageButtonStyles } from 'discord.js/typings/enums';
 import { PageActionRow, PageButton, PageSelect } from './PageComponents';
 import { SlashasaurusClient } from './SlashasaurusClient';
+import { MaybePromise } from './utilityTypes';
 
 interface SerializedObject {
   type: string;
@@ -192,12 +193,13 @@ export type DeserializeStateFn<
 > = (
   serializedState: string,
   interaction?: MessageComponentInteraction | CommandInteraction
-) =>
+) => MaybePromise<
   | {
       props: P;
       state: S;
     }
-  | Record<string, never>;
+  | Record<string, never>
+>;
 
 export function pageComponentRowsToComponents<P, S>(
   rows: PageComponentRows,
