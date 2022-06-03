@@ -11,7 +11,7 @@
 
 ## About
 
-Slashasaurus is a command framework built on top of Discord.js. It's inspired by React and Next.JS, so if you've used either before, this will feel kinda familiar to you.
+Slashasaurus is a framework built on top of Discord.js. It's inspired by React and Next.JS, so if you've used either before, this will feel kinda familiar to you.
 
 It is _strongly_ recommended that you use [TypeScript](https://www.typescriptlang.org/) with this library, however, it is not a requirement. The quick start is written in TypeScript, most information should be very similar for vanilla JS.
 
@@ -25,6 +25,16 @@ npm install --save discord.js slashasaurus
 # or
 
 yarn add discord.js slashasaurus
+```
+
+Alternatively, you can use [create-slashasaurus-app](https://www.npmjs.com/package/create-slashasaurus-app) to generate the boilerplate for you.
+
+```sh
+npx create-slashasaurus-app
+
+# or
+
+yarn create slashasaurus-app
 ```
 
 See [discord.js's readme](https://github.com/discordjs/discord.js#optional-packages) for more info about optional packages.
