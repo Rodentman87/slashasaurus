@@ -69,7 +69,7 @@ interface SlashasaurusClientEvents extends ClientEvents {
   modalSubmit: [interaction: ModalSubmitInteraction];
 }
 
-const JSFileRegex = /(\.js|\.ts)x?$/;
+const JSFileRegex = /(?<!\.d)(\.js|\.ts)x?$/;
 
 export declare interface SlashasaurusClient extends Client<true> {
   on<K extends keyof SlashasaurusClientEvents>(
