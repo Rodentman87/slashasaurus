@@ -165,11 +165,13 @@ export class SlashCommand<T extends OptionsDataArray> {
   ): Promise<CommandOptionsObject<T> | string[]>;
   async validateAndTransformOptions(
     interaction: AutocompleteInteraction,
-    skipRequiredCheck: boolean
+    skipRequiredCheck: boolean,
+    skipValidationAndTransformation: boolean
   ): Promise<CommandOptionsObject<T>>;
   async validateAndTransformOptions(
     interaction: CommandInteraction | AutocompleteInteraction,
-    skipRequiredCheck = false
+    skipRequiredCheck = false,
+    skipValidationAndTransformation = false
   ): Promise<CommandOptionsObject<T> | string[]> {
     const errors: string[] = [];
     const values: Record<string, ReturnType<typeof getDataForType>> = {};
@@ -185,6 +187,11 @@ export class SlashCommand<T extends OptionsDataArray> {
       // If the value is undefined, assign early and continue to skip the rest of the validation and transformation
       if (value === null) {
         values[option.name] = null;
+        continue;
+      }
+
+      if (skipValidationAndTransformation) {
+        values[option.name] = value;
         continue;
       }
 

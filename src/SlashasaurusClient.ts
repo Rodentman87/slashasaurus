@@ -142,6 +142,11 @@ export interface SlashasaurusClientOptions {
    * were last interacted with. The default is 30 seconds.
    */
   pageTtl?: number;
+
+  /**
+   * Whether or not to skip validating and transforming options for autocomplete handlers. Defaults to false.
+   */
+  skipValidationAndTransformationForAutocomplete?: boolean;
 }
 
 interface LogFn {
@@ -191,6 +196,7 @@ export class SlashasaurusClient extends Client<true> {
   private pageMap = new Map<string, PageMapStorage>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private modalMap = new Map<string, TemplateModal<any, any>>();
+  private skipAutocompleteValidationAndTransformation: boolean;
   logger?: Logger;
   chatCommandMiddleware = new Pipeline<CommandRunFunction<[]>>();
   autocompleteMiddleware = new Pipeline<AutocompleteFunction<[]>>();
@@ -212,6 +218,8 @@ export class SlashasaurusClient extends Client<true> {
     );
     this.storePageState = options.storePageState ?? defaultPageStore;
     this.getPageState = options.getPageState ?? defaultPageGet;
+    this.skipAutocompleteValidationAndTransformation =
+      options.skipValidationAndTransformationForAutocomplete ?? false;
     this.on('interactionCreate', this.handleInteractionEvent);
   }
 
@@ -902,7 +910,8 @@ export class SlashasaurusClient extends Client<true> {
     } else {
       const optionsObj = await command.validateAndTransformOptions(
         interaction,
-        true
+        true,
+        this.skipAutocompleteValidationAndTransformation
       );
       const focused = interaction.options.getFocused(true);
       const autocompleteFn = command.autocompleteMap.get(focused.name);
