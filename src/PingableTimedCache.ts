@@ -3,8 +3,7 @@
 export class PingableTimedCache<T> {
   private cache: Map<string, { value: T; time: number }> = new Map();
   private ttl: number;
-  // @ts-ignore
-  private timer: NodeJS.Timer;
+  public timer: NodeJS.Timer;
   private leaveHook?: (value: T) => void;
 
   constructor(ttl: number, leaveHook?: (value: T) => void) {

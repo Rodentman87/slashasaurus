@@ -1,21 +1,20 @@
+import { EmbedBuilder } from '@discordjs/builders';
 import {
-  BaseCommandInteraction,
-  ButtonInteraction,
   CommandInteraction,
+  ButtonInteraction,
   InteractionWebhook,
   Message,
-  MessageActionRow,
-  MessageActionRowComponent,
-  MessageButton,
   MessageComponentInteraction,
-  MessageEmbed,
   MessageOptions,
   MessagePayload,
   SelectMenuInteraction,
   TextBasedChannel,
   WebhookEditMessageOptions,
+  ActionRowBuilder,
+  APIEmbed,
+  MessageActionRowComponentBuilder,
+  Embed,
 } from 'discord.js';
-import { MessageButtonStyles } from 'discord.js/typings/enums';
 import { PageActionRow, PageButton, PageSelect } from './PageComponents';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import { MaybePromise } from './utilityTypes';
@@ -42,6 +41,7 @@ type PageComponentRows = (PageComponentArray | PageActionRow)[];
 export interface RenderedPage
   extends Omit<MessageOptions, 'nonce' | 'components'> {
   components?: PageComponentRows;
+  embeds?: (APIEmbed | EmbedBuilder)[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,7 +128,7 @@ export abstract class Page<
   }
 
   sendAsReply(
-    interaction: MessageComponentInteraction | BaseCommandInteraction,
+    interaction: MessageComponentInteraction | CommandInteraction,
     ephemeral = false
   ) {
     this.client.replyToInteractionWithPage(this, interaction, ephemeral);
@@ -205,12 +205,13 @@ export type DeserializeStateFn<
 export function pageComponentRowsToComponents<P, S>(
   rows: PageComponentRows,
   page: Page<P, S>
-): MessageActionRow[] {
+): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
   page.clearHandlers();
   const pageId = page.constructor.pageId;
   return rows
     .map((row) => {
-      const actionRow = new MessageActionRow<MessageActionRowComponent>();
+      const actionRow =
+        new ActionRowBuilder<MessageActionRowComponentBuilder>();
       if (row instanceof PageActionRow) {
         row.children.forEach((component) => {
           actionRow.addComponents(
@@ -228,8 +229,9 @@ export function pageComponentRowsToComponents<P, S>(
       }
       return actionRow;
     })
-    .filter<MessageActionRow>(
-      (e): e is MessageActionRow => e instanceof MessageActionRow
+    .filter<ActionRowBuilder<MessageActionRowComponentBuilder>>(
+      (e): e is ActionRowBuilder<MessageActionRowComponentBuilder> =>
+        e instanceof ActionRowBuilder
     );
 }
 
@@ -243,11 +245,7 @@ function componentToDjsComponent<P, S>(
       `~${pageId};${page.registerHandler(component.handler)}`
     );
   } else {
-    return new MessageButton({
-      ...component,
-      style: MessageButtonStyles.LINK,
-      type: 'BUTTON',
-    });
+    return component.toDjsComponent();
   }
 }
 
@@ -284,18 +282,14 @@ export function compareMessages(
 
   // Check Embeds
   if (
-    // @ts-expect-error There's some weird stuff with generic intersections that breaks here, but this is fine
-    a.embeds.filter((e) => e.type === 'rich').length !== (b.embeds ?? []).length
+    a.embeds.filter((e) => e.data.type === 'rich').length !==
+    (b.embeds ?? []).length
   )
     return false;
   if (a.embeds.length > 0) {
     if (
       !(b.embeds ?? []).every((bEmbedData, index) => {
-        const bEmbed =
-          bEmbedData instanceof MessageEmbed
-            ? bEmbedData
-            : new MessageEmbed(bEmbedData);
-        // return bEmbed.equals(a.embeds[index]);
+        const bEmbed = 'data' in bEmbedData ? bEmbedData.data : bEmbedData;
         return embedsAreEqual(a.embeds[index], bEmbed);
       })
     ) {
@@ -306,15 +300,9 @@ export function compareMessages(
   return true;
 }
 
-function embedsAreEqual(
-  a: MessageComponentInteraction['message']['embeds'][number],
-  b: MessageEmbed
-) {
-  if (a.type !== 'rich') return true;
-
+function embedsAreEqual(a: Embed, b: APIEmbed) {
   if (
     a.title !== (b.title ? b.title.trim() : b.title) ||
-    a.type !== b.type ||
     a.description !== (b.description ? b.description.trim() : b.description) ||
     a.url !== b.url ||
     (a.color ?? 0) !== b.color
@@ -329,17 +317,12 @@ function embedsAreEqual(
 
   // Compare authors
   const headerIconUrl =
-    a.author &&
-    ('iconURL' in a.author
-      ? a.author.iconURL
-      : 'icon_url' in a.author
-      ? a.author.icon_url
-      : undefined);
+    a.author && ('iconURL' in a.author ? a.author.iconURL : undefined);
   if (
     a.author &&
     b.author &&
     (a.author.name !== b.author.name?.trim() ||
-      headerIconUrl !== b.author.iconURL ||
+      headerIconUrl !== b.author.icon_url ||
       a.author.url !== b.author.url)
   )
     return false;
@@ -347,17 +330,12 @@ function embedsAreEqual(
 
   // Compare footers
   const footerIconUrl =
-    a.footer &&
-    ('iconURL' in a.footer
-      ? a.footer.iconURL
-      : 'icon_url' in a.footer
-      ? a.footer.icon_url
-      : undefined);
+    a.footer && ('iconURL' in a.footer ? a.footer.iconURL : undefined);
   if (
     a.footer &&
     b.footer &&
     (a.footer?.text !== b.footer?.text?.trim() ||
-      footerIconUrl !== b.footer?.iconURL)
+      footerIconUrl !== b.footer?.icon_url)
   )
     return false;
   else if ((a.footer && !b.footer) || (b.footer && !a.footer)) return false;
@@ -377,11 +355,13 @@ function embedsAreEqual(
     return false;
 
   // Compare fields
-  if ((a.fields ?? []).length !== b.fields.length) return false;
-  return (a.fields ?? []).every(
+  const aFields = a.fields ?? [];
+  const bFields = b.fields ?? [];
+  if (aFields.length !== bFields.length) return false;
+  return aFields.every(
     (f, i) =>
-      f.inline === b.fields[i].inline &&
-      f.name === b.fields[i].name?.trim() &&
-      f.value === b.fields[i].value?.trim()
+      f.inline === bFields[i].inline &&
+      f.name === bFields[i].name?.trim() &&
+      f.value === bFields[i].value?.trim()
   );
 }

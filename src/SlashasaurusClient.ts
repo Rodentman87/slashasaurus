@@ -1,17 +1,19 @@
 import {
   AutocompleteInteraction,
   Awaitable,
-  BaseCommandInteraction,
   BaseGuildTextChannel,
   BitFieldResolvable,
   ButtonInteraction,
+  ChatInputCommandInteraction,
   Client,
   ClientEvents,
   ClientOptions,
   CommandInteraction,
-  ContextMenuInteraction,
+  ComponentType,
+  ContextMenuCommandInteraction,
   DMChannel,
   Interaction,
+  InteractionType,
   InteractionWebhook,
   Message,
   MessageComponentInteraction,
@@ -64,7 +66,7 @@ interface SlashasaurusClientEvents extends ClientEvents {
   commandRun: [intercation: CommandInteraction];
   buttonPressed: [interaction: ButtonInteraction];
   selectChanged: [interaction: SelectMenuInteraction];
-  contextMenuRun: [interaction: ContextMenuInteraction];
+  contextMenuRun: [interaction: ContextMenuCommandInteraction];
   autocomplete: [interaction: AutocompleteInteraction];
   modalSubmit: [interaction: ModalSubmitInteraction];
 }
@@ -228,8 +230,6 @@ export class SlashasaurusClient extends Client<true> {
    *
    * @param folderPath The relative path to the folder
    */
-  // TODO: guild specific commands
-  // guild commands will be a 0.3 thing probably tbh (lol ok that totally happened :mmLol:)
   async registerCommandsFrom(
     folderPath: string,
     register: false
@@ -840,33 +840,44 @@ export class SlashasaurusClient extends Client<true> {
 
   private handleInteractionEvent(interaction: Interaction) {
     this.logger?.debug(interaction);
-    if (interaction.isCommand()) {
-      // This is a command, pass it to our command handlers
-      this.handleCommand(interaction);
-      this.emit('commandRun', interaction);
-    } else if (interaction.isButton()) {
-      if (interaction.customId.startsWith('~')) {
-        this.handlePageButton(interaction);
-      }
-      this.emit('buttonPressed', interaction);
-    } else if (interaction.isSelectMenu()) {
-      if (interaction.customId.startsWith('~')) {
-        this.handlePageSelect(interaction);
-      }
-      this.emit('selectChanged', interaction);
-    } else if (interaction.isContextMenu()) {
-      this.handleContextMenu(interaction);
-      this.emit('contextMenuRun', interaction);
-    } else if (interaction.isAutocomplete()) {
-      this.handleAutocomplete(interaction);
-      this.emit('autocomplete', interaction);
-    } else if (interaction.isModalSubmit()) {
-      this.handleModalSubmit(interaction);
-      this.emit('modalSubmit', interaction);
+    switch (interaction.type) {
+      case InteractionType.ApplicationCommand:
+        if (interaction.commandType === ApplicationCommandType.ChatInput) {
+          this.handleCommand(interaction);
+          this.emit('commandRun', interaction);
+        } else if (
+          interaction.commandType === ApplicationCommandType.Message ||
+          interaction.commandType === ApplicationCommandType.User
+        ) {
+          this.handleContextMenu(interaction);
+          this.emit('contextMenuRun', interaction);
+        }
+        break;
+      case InteractionType.ApplicationCommandAutocomplete:
+        this.handleAutocomplete(interaction);
+        this.emit('autocomplete', interaction);
+        break;
+      case InteractionType.MessageComponent:
+        if (interaction.componentType === ComponentType.Button) {
+          if (interaction.customId.startsWith('~')) {
+            this.handlePageButton(interaction);
+          }
+          this.emit('buttonPressed', interaction);
+        } else if (interaction.componentType === ComponentType.SelectMenu) {
+          if (interaction.customId.startsWith('~')) {
+            this.handlePageSelect(interaction);
+          }
+          this.emit('selectChanged', interaction);
+        }
+        break;
+      case InteractionType.ModalSubmit:
+        this.handleModalSubmit(interaction);
+        this.emit('modalSubmit', interaction);
+        break;
     }
   }
 
-  private async handleCommand(interaction: CommandInteraction) {
+  private async handleCommand(interaction: ChatInputCommandInteraction) {
     let commandName = interaction.commandName;
     // @ts-expect-error This is TS-private, but I know what I'm doing
     if (interaction.options._group) {
@@ -942,10 +953,10 @@ export class SlashasaurusClient extends Client<true> {
     }
   }
 
-  private async handleContextMenu(interaction: ContextMenuInteraction) {
+  private async handleContextMenu(interaction: ContextMenuCommandInteraction) {
     const commandName = interaction.commandName;
     const command =
-      interaction.targetType === 'MESSAGE'
+      interaction.commandType === ApplicationCommandType.Message
         ? this.messageContextMenuMap.get(commandName)
         : this.userContextMenuMap.get(commandName);
     if (!command) {
@@ -955,12 +966,8 @@ export class SlashasaurusClient extends Client<true> {
       throw new Error(`Unregistered command ${commandName} was run`);
     } else {
       this.logger?.info(`Running context command ${commandName}`);
-      this.contextMenuMiddleware.execute(
-        command.run,
-        // @ts-expect-error this will complain that the types don't match, but it's a waste of a check to split this here.
-        interaction,
-        this
-      );
+      // @ts-expect-error This is going to complain because the context menu handler is typed with a more specific type
+      this.contextMenuMiddleware.execute(command.run, interaction, this);
     }
   }
 
@@ -1068,17 +1075,15 @@ export class SlashasaurusClient extends Client<true> {
     const modal = this.modalMap.get(interaction.customId);
     if (!modal) return;
     const values: Record<string, string> = {};
-    interaction.components.forEach((row) => {
-      row.components.forEach((component) => {
-        values[component.customId] = component.value;
-      });
+    interaction.fields.fields.forEach((field) => {
+      values[field.customId] = field.value;
     });
     modal.handler(interaction, values);
   }
 
   async replyToInteractionWithPage<P, S>(
     page: Page<P, S>,
-    interaction: MessageComponentInteraction | BaseCommandInteraction,
+    interaction: MessageComponentInteraction | CommandInteraction,
     ephemeral: boolean
   ) {
     const messageOptions = await page.render();
@@ -1092,7 +1097,7 @@ export class SlashasaurusClient extends Client<true> {
         ephemeral: true,
         fetchReply: true,
         flags: messageOptions.flags as unknown as BitFieldResolvable<
-          'SUPPRESS_EMBEDS' | 'EPHEMERAL',
+          'SuppressEmbeds' | 'Ephemeral',
           number
         >,
       });
@@ -1116,7 +1121,7 @@ export class SlashasaurusClient extends Client<true> {
           : [],
         fetchReply: true,
         flags: messageOptions.flags as unknown as BitFieldResolvable<
-          'SUPPRESS_EMBEDS' | 'EPHEMERAL',
+          'SuppressEmbeds' | 'Ephemeral',
           number
         >,
       });

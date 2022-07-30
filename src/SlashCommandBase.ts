@@ -1,5 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { AutocompleteInteraction, CommandInteraction } from 'discord.js';
+import {
+  AutocompleteInteraction,
+  ChatInputCommandInteraction,
+  CommandInteraction,
+  InteractionType,
+  SlashCommandAttachmentOption,
+  SlashCommandBooleanOption,
+  SlashCommandBuilder,
+  SlashCommandChannelOption,
+  SlashCommandIntegerOption,
+  SlashCommandMentionableOption,
+  SlashCommandNumberOption,
+  SlashCommandRoleOption,
+  SlashCommandStringOption,
+  SlashCommandSubcommandBuilder,
+  SlashCommandUserOption,
+} from 'discord.js';
 import {
   LocalizationMap,
   ApplicationCommandOptionType,
@@ -12,19 +28,6 @@ import {
 } from './utilityTypes';
 import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
 import { ValidationError } from './CustomErrors';
-import {
-  SlashCommandAttachmentOption,
-  SlashCommandBooleanOption,
-  SlashCommandBuilder,
-  SlashCommandChannelOption,
-  SlashCommandIntegerOption,
-  SlashCommandMentionableOption,
-  SlashCommandNumberOption,
-  SlashCommandRoleOption,
-  SlashCommandStringOption,
-  SlashCommandSubcommandBuilder,
-  SlashCommandUserOption,
-} from '@discordjs/builders';
 
 type ChatCommandOptions<T extends OptionsDataArray> = {
   name: string;
@@ -161,7 +164,7 @@ export class SlashCommand<T extends OptionsDataArray> {
   }
 
   async validateAndTransformOptions(
-    interaction: CommandInteraction
+    interaction: ChatInputCommandInteraction
   ): Promise<CommandOptionsObject<T> | string[]>;
   async validateAndTransformOptions(
     interaction: AutocompleteInteraction,
@@ -169,20 +172,28 @@ export class SlashCommand<T extends OptionsDataArray> {
     skipValidationAndTransformation: boolean
   ): Promise<CommandOptionsObject<T>>;
   async validateAndTransformOptions(
-    interaction: CommandInteraction | AutocompleteInteraction,
+    interaction: ChatInputCommandInteraction | AutocompleteInteraction,
     skipRequiredCheck = false,
     skipValidationAndTransformation = false
   ): Promise<CommandOptionsObject<T> | string[]> {
     const errors: string[] = [];
-    const values: Record<string, ReturnType<typeof getDataForType>> = {};
+    const values: Record<string, ReturnType<typeof getCommandDataForType>> = {};
     for (const option of this.commandInfo.options) {
       // Get the option data
-      let value = getDataForType(
-        interaction,
-        option.type,
-        option.name,
-        skipRequiredCheck ? false : option.required ?? false
-      );
+      let value =
+        interaction.type === InteractionType.ApplicationCommand
+          ? getCommandDataForType(
+              interaction,
+              option.type,
+              option.name,
+              skipRequiredCheck ? false : option.required ?? false
+            )
+          : getAutocompleteDataForType(
+              interaction,
+              option.type,
+              option.name,
+              skipRequiredCheck ? false : option.required ?? false
+            );
 
       // If the value is undefined, assign early and continue to skip the rest of the validation and transformation
       if (value === null) {
@@ -241,8 +252,8 @@ export class SlashCommand<T extends OptionsDataArray> {
   }
 }
 
-function getDataForType(
-  interaction: CommandInteraction | AutocompleteInteraction,
+function getCommandDataForType(
+  interaction: ChatInputCommandInteraction,
   type: ApplicationCommandOptionData['type'],
   name: string,
   required: boolean
@@ -260,7 +271,10 @@ function getDataForType(
     case 'USER':
     case ApplicationCommandOptionType.User:
       if (interaction.inGuild())
-        return interaction.options.getMember(name, required);
+        return (
+          interaction.options.getMember(name) ??
+          interaction.options.getUser(name, required)
+        );
       return interaction.options.getUser(name, required);
     case 'CHANNEL':
     case ApplicationCommandOptionType.Channel:
@@ -278,6 +292,29 @@ function getDataForType(
     case ApplicationCommandOptionType.Attachment:
       return interaction.options.getAttachment(name, required);
   }
+}
+
+function getAutocompleteDataForType(
+  interaction: AutocompleteInteraction,
+  type: ApplicationCommandOptionData['type'],
+  name: string,
+  required: boolean
+) {
+  switch (type) {
+    case 'STRING':
+    case ApplicationCommandOptionType.String:
+      return interaction.options.getString(name, required);
+    case 'INTEGER':
+    case ApplicationCommandOptionType.Integer:
+      return interaction.options.getInteger(name, required);
+    case 'BOOLEAN':
+    case ApplicationCommandOptionType.Boolean:
+      return interaction.options.getBoolean(name, required);
+    case 'NUMBER':
+    case ApplicationCommandOptionType.Number:
+      return interaction.options.getNumber(name, required);
+  }
+  return null;
 }
 
 export function populateBuilder<
@@ -313,6 +350,10 @@ export function populateBuilder<
           .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
           .setRequired(option.required ?? false)
           .setAutocomplete(option.autocomplete ?? false);
+        if ('minLength' in option && option.minLength)
+          string.setMinLength(option.minLength);
+        if ('maxLength' in option && option.maxLength)
+          string.setMaxLength(option.maxLength);
         if ('choices' in option && option.choices) {
           string.setChoices(
             ...option.choices.map((choice) => ({

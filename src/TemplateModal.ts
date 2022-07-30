@@ -1,12 +1,12 @@
+import { TextInputBuilder } from '@discordjs/builders';
 import {
-  MessageActionRow,
-  Modal,
-  ModalActionRowComponent,
+  ActionRowBuilder,
+  ModalBuilder,
   ModalSubmitInteraction,
-  TextInputComponent,
   TextInputStyle,
+  ModalActionRowComponentBuilder,
+  ComponentType,
 } from 'discord.js';
-import { TextInputStyles } from 'discord.js/typings/enums';
 
 type ExtractFromDelimiters<
   S extends string,
@@ -116,18 +116,22 @@ export class TemplateModal<
     this.handler = handler;
   }
 
-  public getModal(variables: GetModalVariablesInput<T, U>): Modal {
+  public getModal(variables: GetModalVariablesInput<T, U>): ModalBuilder {
     const title = replaceVariables(this.title, variables);
-    const modal = new Modal({
+    const modal = new ModalBuilder({
       title,
       customId: this.customId,
       components: this.components.map((component) => {
-        const row = new MessageActionRow<ModalActionRowComponent>();
-        const textInput = new TextInputComponent({
-          ...component,
-          style: component.style ?? TextInputStyles.SHORT,
+        const row = new ActionRowBuilder<ModalActionRowComponentBuilder>();
+        const textInput = new TextInputBuilder({
+          type: ComponentType.TextInput,
+          custom_id: component.customId,
+          style: component.style ?? TextInputStyle.Short,
           label: replaceVariables(component.label, variables),
+          required: component.required,
         });
+        if (component.maxLength) textInput.setMaxLength(component.maxLength);
+        if (component.minLength) textInput.setMinLength(component.minLength);
         if (component.placeholder)
           textInput.setPlaceholder(
             replaceVariables(component.placeholder, variables)
