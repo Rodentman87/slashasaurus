@@ -3,15 +3,13 @@ import {
   ApplicationCommandOptionChoiceData,
   CategoryChannel,
   CommandInteractionOptionResolver,
-  ExcludeEnum,
   NewsChannel,
   StageChannel,
-  StoreChannel,
   TextChannel,
   ThreadChannel,
   VoiceChannel,
+  ChannelType,
 } from 'discord.js';
-import { ChannelTypes } from 'discord.js/typings/enums';
 import { OptionsDataArray, ApplicationCommandOptionData } from './OptionTypes';
 
 export type ExtractArrayType<T> = ((a: T) => never) extends (
@@ -87,38 +85,22 @@ export type OptionsMap = {
 };
 
 type ChannelsMap = {
-  GUILD_TEXT: TextChannel;
   0: TextChannel;
-  DM: never;
-  1: never;
-  GUILD_VOICE: VoiceChannel;
+  1: never; // DM
   2: VoiceChannel;
-  GROUP_DM: never;
-  3: never;
-  GUILD_CATEGORY: CategoryChannel;
+  3: never; // Group DM
   4: CategoryChannel;
-  GUILD_NEWS: NewsChannel;
   5: NewsChannel;
-  GUILD_STORE: StoreChannel;
-  6: StoreChannel;
-  GUILD_NEWS_THREAD: ThreadChannel;
   10: ThreadChannel;
-  GUILD_PUBLIC_THREAD: ThreadChannel;
   11: ThreadChannel;
-  GUILD_PRIVATE_THREAD: ThreadChannel;
   12: ThreadChannel;
-  GUILD_STAGE_VOICE: StageChannel;
   13: StageChannel;
-  GUILD_DIRECTORY: never;
-  14: never;
+  14: never; // Directory
+  15: never; // Forum
 };
 
-type MapChannelTypesToChannels<
-  T extends ReadonlyArray<ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>>
-> = {
-  [K in keyof T]: T[K] extends ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>
-    ? ChannelsMap[T[K]]
-    : never;
+type MapChannelTypesToChannels<T extends ReadonlyArray<ChannelType>> = {
+  [K in keyof T]: T[K] extends ChannelType ? ChannelsMap[T[K]] : never;
 }[number];
 
 type OptionToValue<T extends ApplicationCommandOptionData> = T extends {
@@ -129,7 +111,7 @@ type OptionToValue<T extends ApplicationCommandOptionData> = T extends {
   : T extends HasChoices
   ? MapChoicesToValues<T['choices']>
   : T extends {
-      channelTypes: ReadonlyArray<ExcludeEnum<typeof ChannelTypes, 'UNKNOWN'>>;
+      channelTypes: ReadonlyArray<ChannelType>;
     }
   ?
       | MapChannelTypesToChannels<T['channelTypes']>

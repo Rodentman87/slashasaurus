@@ -53,6 +53,8 @@ type StringChoiceResolvableType =
 
 interface StringOptionsData extends BaseApplicationCommandOptionsData<string> {
   readonly type: StringChoiceResolvableType;
+  readonly minLength?: number;
+  readonly maxLength?: number;
 }
 
 interface StringChoiceOptionsData

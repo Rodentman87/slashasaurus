@@ -1,6 +1,6 @@
 import type {
-  MessageContextMenuInteraction,
-  UserContextMenuInteraction,
+  MessageContextMenuCommandInteraction,
+  UserContextMenuCommandInteraction,
 } from 'discord.js';
 import type { LocalizationMap } from 'discord-api-types/v10';
 import { SlashasaurusClient } from './SlashasaurusClient';
@@ -16,11 +16,11 @@ type ContextCommandOptions<T extends 'MESSAGE' | 'USER'> = {
 export type ContextMenuHandlerType<T extends 'MESSAGE' | 'USER'> =
   T extends 'MESSAGE'
     ? (
-        interaction: MessageContextMenuInteraction,
+        interaction: MessageContextMenuCommandInteraction,
         client: SlashasaurusClient
       ) => void
     : (
-        interaction: UserContextMenuInteraction,
+        interaction: UserContextMenuCommandInteraction,
         client: SlashasaurusClient
       ) => void;
 
