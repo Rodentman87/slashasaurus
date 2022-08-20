@@ -124,14 +124,14 @@ export abstract class Page<
   }
 
   sendToChannel(channel: TextBasedChannel) {
-    this.client.sendPageToChannel(this, channel);
+    return this.client.sendPageToChannel(this, channel);
   }
 
   sendAsReply(
     interaction: MessageComponentInteraction | CommandInteraction,
     ephemeral = false
   ) {
-    this.client.replyToInteractionWithPage(this, interaction, ephemeral);
+    return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

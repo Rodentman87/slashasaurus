@@ -914,7 +914,17 @@ export class SlashasaurusClient extends Client<true> {
   }
 
   private async handleAutocomplete(interaction: AutocompleteInteraction) {
-    const commandName = interaction.commandName;
+    let commandName = interaction.commandName;
+    // @ts-expect-error This is TS-private, but I know what I'm doing
+    if (interaction.options._group) {
+      // @ts-expect-error This is TS-private, but I know what I'm doing
+      commandName += '.' + interaction.options._group;
+    }
+    // @ts-expect-error This is TS-private, but I know what I'm doing
+    if (interaction.options._subcommand) {
+      // @ts-expect-error This is TS-private, but I know what I'm doing
+      commandName += '.' + interaction.options._subcommand;
+    }
     const command = this.commandMap.get(commandName);
     if (!command) {
       interaction.respond([]);
