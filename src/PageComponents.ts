@@ -149,6 +149,7 @@ export class PageLinkButton implements ExportableToDjsComponent {
     const builder = new ButtonBuilder({
       style: ButtonStyle.Link,
       disabled: this.disabled,
+      url: this.url,
     });
     if (this.label) builder.setLabel(this.label);
     if (this.emoji) builder.setEmoji(this.emoji);
