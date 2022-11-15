@@ -1,10 +1,6 @@
-import type { LocalizationMap } from 'discord-api-types/v9';
 import { ApplicationCommandOptionType } from 'discord-api-types/v10';
-import {
-  AutocompleteInteraction,
-  CommandInteraction,
-  ChannelType,
-} from 'discord.js';
+import type { LocalizationMap } from 'discord-api-types/v9';
+import { ChannelType, CommandInteraction } from 'discord.js';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import { MaybePromise, OptionsMap } from './utilityTypes';
 
@@ -47,20 +43,15 @@ interface ApplicationCommandOptionChoiceData<T extends string | number> {
   value: T;
 }
 
-// STRING
-type StringChoiceResolvableType =
-  | ApplicationCommandOptionType.String
-  | 'STRING';
-
 interface StringOptionsData extends BaseApplicationCommandOptionsData<string> {
-  readonly type: StringChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.String;
   readonly minLength?: number;
   readonly maxLength?: number;
 }
 
 interface StringChoiceOptionsData
   extends Omit<BaseApplicationCommandOptionsData<string>, 'autocomplete'> {
-  readonly type: StringChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.String;
   readonly choices:
     | readonly [
         ApplicationCommandOptionChoiceData<string>,
@@ -71,24 +62,19 @@ interface StringChoiceOptionsData
 
 interface StringAutocompleteOptionsData
   extends Omit<BaseApplicationCommandOptionsData<string>, 'autocomplete'> {
-  readonly type: StringChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.String;
   readonly autocomplete: true;
   readonly onAutocomplete?: (
-    interaction: AutocompleteInteraction,
+    interaction: ConnectorTypes['AutocompleteInteraction'],
     value: string,
     client: SlashasaurusClient
   ) => void;
   readonly transformer?: (value: string) => unknown;
 }
 
-// INTEGER
-type IntegerChoiceResolvableType =
-  | ApplicationCommandOptionType.Integer
-  | 'INTEGER';
-
 interface IntegerOptionsData
   extends Omit<BaseApplicationCommandOptionsData<number>, 'autocomplete'> {
-  readonly type: IntegerChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Integer;
   readonly minValue?: number;
   readonly maxValue?: number;
   readonly autocomplete?: false;
@@ -96,7 +82,7 @@ interface IntegerOptionsData
 
 interface IntegerChoiceOptionsData
   extends Omit<BaseApplicationCommandOptionsData<number>, 'autocomplete'> {
-  readonly type: IntegerChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Integer;
   readonly choices:
     | readonly [
         ApplicationCommandOptionChoiceData<number>,
@@ -107,38 +93,25 @@ interface IntegerChoiceOptionsData
 
 interface IntegerAutocompleteOptionsData
   extends Omit<BaseApplicationCommandOptionsData<number>, 'autocomplete'> {
-  readonly type: IntegerChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Integer;
   readonly autocomplete: true;
   readonly onAutocomplete?: (
-    interaction: AutocompleteInteraction,
+    interaction: ConnectorTypes['AutocompleteInteraction'],
     value: number,
     client: SlashasaurusClient
   ) => void;
   readonly transformer?: (value: number) => unknown;
 }
 
-// BOOLEAN
-type BooleanChoiceResolvableType =
-  | ApplicationCommandOptionType.Boolean
-  | 'BOOLEAN';
-
 interface BooleanOptionsData
   extends BaseApplicationCommandOptionsData<boolean> {
-  readonly type: BooleanChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Boolean;
 }
-
-// USER
-type UserChoiceResolvableType = ApplicationCommandOptionType.User | 'USER';
 
 interface UserOptionsData
   extends BaseApplicationCommandOptionsData<OptionsMap['USER']> {
-  readonly type: UserChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.User;
 }
-
-// CHANNEL
-type ChannelChoiceResolvableType =
-  | ApplicationCommandOptionType.Channel
-  | 'CHANNEL';
 
 type ValidChannelTypes =
   | ChannelType.GuildText
@@ -153,36 +126,23 @@ type ValidChannelTypes =
 
 interface ChannelOptionsData
   extends BaseApplicationCommandOptionsData<OptionsMap['CHANNEL']> {
-  readonly type: ChannelChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Channel;
   readonly channelTypes?: ReadonlyArray<ValidChannelTypes>;
 }
 
-// ROLE
-type RoleChoiceResolvableType = ApplicationCommandOptionType.Role | 'ROLE';
-
 interface RoleOptionsData
   extends BaseApplicationCommandOptionsData<OptionsMap['ROLE']> {
-  readonly type: RoleChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Role;
 }
-
-// MENTIONABLE
-type MentionableChoiceResolvableType =
-  | ApplicationCommandOptionType.Mentionable
-  | 'MENTIONABLE';
 
 interface MentionableOptionsData
   extends BaseApplicationCommandOptionsData<OptionsMap['MENTIONABLE']> {
-  readonly type: MentionableChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Mentionable;
 }
-
-// NUMBER
-type NumberChoiceResolvableType =
-  | ApplicationCommandOptionType.Number
-  | 'NUMBER';
 
 interface NumberOptionsData
   extends Omit<BaseApplicationCommandOptionsData<number>, 'autocomplete'> {
-  readonly type: NumberChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Number;
   readonly minValue?: number;
   readonly maxValue?: number;
   readonly autocomplete?: false;
@@ -190,7 +150,7 @@ interface NumberOptionsData
 
 interface NumberChoiceOptionsData
   extends Omit<BaseApplicationCommandOptionsData<number>, 'autocomplete'> {
-  readonly type: NumberChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Number;
   readonly choices:
     | readonly [
         ApplicationCommandOptionChoiceData<number>,
@@ -201,24 +161,19 @@ interface NumberChoiceOptionsData
 
 interface NumberAutocompleteOptionsData
   extends Omit<BaseApplicationCommandOptionsData<number>, 'autocomplete'> {
-  readonly type: NumberChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Number;
   readonly autocomplete: true;
   readonly onAutocomplete?: (
-    interaction: AutocompleteInteraction,
+    interaction: ConnectorTypes['AutocompleteInteraction'],
     value: number,
     client: SlashasaurusClient
   ) => void;
   readonly transformer?: (value: number) => unknown;
 }
 
-// ATTACHMENT
-type AttachmentChoiceResolvableType =
-  | ApplicationCommandOptionType.Attachment
-  | 'ATTACHMENT';
-
 interface AttachmentOptionsData
   extends BaseApplicationCommandOptionsData<OptionsMap['ATTACHMENT']> {
-  readonly type: AttachmentChoiceResolvableType;
+  readonly type: ApplicationCommandOptionType.Attachment;
 }
 
 export type ApplicationCommandOptionData =

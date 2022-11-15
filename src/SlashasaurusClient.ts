@@ -1,3 +1,24 @@
+// import {
+//   AutocompleteInteraction,
+//   BaseGuildTextChannel,
+//   BitFieldResolvable,
+//   ButtonInteraction,
+//   ChatInputCommandInteraction,
+//   Client,
+//   ClientEvents,
+//   ClientOptions,
+//   CommandInteraction,
+//   ContextMenuCommandInteraction,
+//   DMChannel,
+//   Interaction,
+//   InteractionWebhook,
+//   Message,
+//   MessageComponentInteraction,
+//   MessageFlagsString,
+//   ModalSubmitInteraction,
+//   SelectMenuInteraction,
+//   TextBasedChannel,
+// } from 'discord.js';
 import {
   ContextMenuCommandBuilder,
   SlashCommandBuilder,
@@ -6,36 +27,9 @@ import {
 } from '@discordjs/builders';
 import { REST } from '@discordjs/rest';
 import { ApplicationCommandType, Routes } from 'discord-api-types/v10';
-import {
-  AutocompleteInteraction,
-  Awaitable,
-  BaseGuildTextChannel,
-  BitFieldResolvable,
-  ButtonInteraction,
-  ChannelSelectMenuInteraction,
-  ChatInputCommandInteraction,
-  Client,
-  ClientEvents,
-  ClientOptions,
-  CommandInteraction,
-  ComponentType,
-  ContextMenuCommandInteraction,
-  DMChannel,
-  ForumChannel,
-  Interaction,
-  InteractionType,
-  InteractionWebhook,
-  MentionableSelectMenuInteraction,
-  Message,
-  MessageComponentInteraction,
-  ModalSubmitInteraction,
-  RoleSelectMenuInteraction,
-  SelectMenuInteraction,
-  TextBasedChannel,
-  UserSelectMenuInteraction,
-} from 'discord.js';
 import { readdir, stat } from 'fs/promises';
 import { join } from 'path';
+import { Connector } from './Connector';
 import {
   ContextMenuHandlerType,
   isMessageCommand,
@@ -44,15 +38,7 @@ import {
   UserCommand,
 } from './ContextMenuBase';
 import { Middleware, Pipeline } from './MiddlewarePipeline';
-import {
-  compareMessages,
-  DEFAULT_PAGE_ID,
-  DeserializeStateFn,
-  isPage,
-  Page,
-  pageComponentRowsToComponents,
-  PageInteractionReplyMessage,
-} from './Page';
+import { DEFAULT_PAGE_ID, DeserializeStateFn, isPage, Page } from './Page';
 import { PingableTimedCache } from './PingableTimedCache';
 import {
   AutocompleteFunction,
@@ -66,46 +52,9 @@ import {
 import { TemplateModal } from './TemplateModal';
 import { MaybePromise } from './utilityTypes';
 
-interface SlashasaurusClientEvents extends ClientEvents {
-  commandRun: [intercation: CommandInteraction];
-  buttonPressed: [interaction: ButtonInteraction];
-  selectChanged: [interaction: SelectMenuInteraction];
-  contextMenuRun: [interaction: ContextMenuCommandInteraction];
-  autocomplete: [interaction: AutocompleteInteraction];
-  modalSubmit: [interaction: ModalSubmitInteraction];
-  userSelectChanged: [interaction: UserSelectMenuInteraction];
-  roleSelectChanged: [interaction: RoleSelectMenuInteraction];
-  channelSelectChanged: [interaction: ChannelSelectMenuInteraction];
-  mentionableSelectChanged: [interaction: MentionableSelectMenuInteraction];
-}
-
 const JSFileRegex = /(?<!\.d)(\.js|\.ts)x?$/;
 
-export declare interface SlashasaurusClient extends Client<true> {
-  on<K extends keyof SlashasaurusClientEvents>(
-    event: K,
-    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>
-  ): this;
-
-  once<K extends keyof SlashasaurusClientEvents>(
-    event: K,
-    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>
-  ): this;
-
-  emit<K extends keyof SlashasaurusClientEvents>(
-    event: K,
-    ...args: SlashasaurusClientEvents[K]
-  ): boolean;
-
-  off<K extends keyof SlashasaurusClientEvents>(
-    event: K,
-    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>
-  ): this;
-
-  removeAllListeners<K extends keyof SlashasaurusClientEvents>(event?: K): this;
-}
-
-interface MessageData {
+export interface MessageData {
   guildId: string;
   channelId: string;
   messageId: string;
@@ -129,6 +78,11 @@ type GetPageStateFn = (messageId: string) => MaybePromise<{
 }>;
 
 export interface SlashasaurusClientOptions {
+  /**
+   * The client to use
+   */
+  client: ConnectorTypes['Client'];
+
   /**
    * You can pass any logger compatible with [pino](https://getpino.io/)
    * and the client will log some internal information to it
@@ -198,7 +152,7 @@ async function defaultPageGet(): Promise<{
   };
 }
 
-export class SlashasaurusClient extends Client<true> {
+export class SlashasaurusClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private commandMap = new Map<string, SlashCommand<any>>();
   private userContextMenuMap = new Map<string, UserCommand>();
@@ -219,8 +173,12 @@ export class SlashasaurusClient extends Client<true> {
   storePageState: StorePageStateFn;
   getPageState: GetPageStateFn;
 
-  constructor(djsOptions: ClientOptions, options: SlashasaurusClientOptions) {
-    super(djsOptions);
+  client: ConnectorTypes['Client'];
+  connector: Connector;
+
+  constructor(connector: Connector, options: SlashasaurusClientOptions) {
+    this.client = options.client;
+    this.connector = connector;
     if (options.logger) this.logger = options.logger;
     this.activePages = new PingableTimedCache(
       options.pageTtl ?? 30000,
@@ -230,7 +188,6 @@ export class SlashasaurusClient extends Client<true> {
     this.getPageState = options.getPageState ?? defaultPageGet;
     this.skipAutocompleteValidationAndTransformation =
       options.skipValidationAndTransformationForAutocomplete ?? false;
-    this.on('interactionCreate', this.handleInteractionEvent);
   }
 
   /**
@@ -282,9 +239,14 @@ export class SlashasaurusClient extends Client<true> {
     if (register && token) {
       const rest = new REST({ version: '10' }).setToken(token);
 
-      await rest.put(Routes.applicationCommands(this.application.id), {
-        body: commandData.map((c) => c.toJSON()),
-      });
+      await rest.put(
+        Routes.applicationCommands(
+          this.connector.getApplicationId(this.client)
+        ),
+        {
+          body: commandData.map((c) => c.toJSON()),
+        }
+      );
     }
 
     this.logger?.info('Finished registering global commands');
@@ -337,7 +299,10 @@ export class SlashasaurusClient extends Client<true> {
     if (register && token) {
       const rest = new REST({ version: '10' }).setToken(token);
       await rest.put(
-        Routes.applicationGuildCommands(this.application.id, guildId),
+        Routes.applicationGuildCommands(
+          this.connector.getApplicationId(this.client),
+          guildId
+        ),
         {
           body: commandData.map((c) => c.toJSON()),
         }
@@ -362,6 +327,8 @@ export class SlashasaurusClient extends Client<true> {
   ) {
     this.contextMenuMiddleware.push(fn);
   }
+
+  // #region Command Loading
 
   private async loadUserCommands(path: string) {
     const topLevel = await readdir(path);
@@ -758,6 +725,8 @@ export class SlashasaurusClient extends Client<true> {
     return builder;
   }
 
+  // #endregion
+
   async registerPagesFrom(path: string) {
     const topLevel = await readdir(path);
 
@@ -851,91 +820,29 @@ export class SlashasaurusClient extends Client<true> {
     }
   }
 
-  private handleInteractionEvent(interaction: Interaction) {
-    this.logger?.debug(interaction);
-    switch (interaction.type) {
-      case InteractionType.ApplicationCommand:
-        if (interaction.commandType === ApplicationCommandType.ChatInput) {
-          this.handleCommand(interaction);
-          this.emit('commandRun', interaction);
-        } else if (
-          interaction.commandType === ApplicationCommandType.Message ||
-          interaction.commandType === ApplicationCommandType.User
-        ) {
-          this.handleContextMenu(interaction);
-          this.emit('contextMenuRun', interaction);
-        }
-        break;
-      case InteractionType.ApplicationCommandAutocomplete:
-        this.handleAutocomplete(interaction);
-        this.emit('autocomplete', interaction);
-        break;
-      case InteractionType.MessageComponent:
-        if (interaction.componentType === ComponentType.Button) {
-          if (interaction.customId.startsWith('~')) {
-            this.handlePageButton(interaction);
-          }
-          this.emit('buttonPressed', interaction);
-        } else if (interaction.componentType === ComponentType.StringSelect) {
-          if (interaction.customId.startsWith('~')) {
-            this.handlePageSelect(interaction);
-          }
-          this.emit('selectChanged', interaction);
-        } else if (interaction.componentType === ComponentType.UserSelect) {
-          if (interaction.customId.startsWith('~')) {
-            this.handlePageSelect(interaction);
-          }
-          this.emit('userSelectChanged', interaction);
-        } else if (interaction.componentType === ComponentType.ChannelSelect) {
-          if (interaction.customId.startsWith('~')) {
-            this.handlePageSelect(interaction);
-          }
-          this.emit('channelSelectChanged', interaction);
-        } else if (interaction.componentType === ComponentType.RoleSelect) {
-          if (interaction.customId.startsWith('~')) {
-            this.handlePageSelect(interaction);
-          }
-          this.emit('roleSelectChanged', interaction);
-        } else if (
-          interaction.componentType === ComponentType.MentionableSelect
-        ) {
-          if (interaction.customId.startsWith('~')) {
-            this.handlePageSelect(interaction);
-          }
-          this.emit('mentionableSelectChanged', interaction);
-        }
-        break;
-      case InteractionType.ModalSubmit:
-        this.handleModalSubmit(interaction);
-        this.emit('modalSubmit', interaction);
-        break;
-    }
-  }
-
-  private async handleCommand(interaction: ChatInputCommandInteraction) {
-    let commandName = interaction.commandName;
-    // @ts-expect-error This is TS-private, but I know what I'm doing
-    if (interaction.options._group) {
-      // @ts-expect-error This is TS-private, but I know what I'm doing
-      commandName += '.' + interaction.options._group;
-    }
-    // @ts-expect-error This is TS-private, but I know what I'm doing
-    if (interaction.options._subcommand) {
-      // @ts-expect-error This is TS-private, but I know what I'm doing
-      commandName += '.' + interaction.options._subcommand;
-    }
-    const command = this.commandMap.get(commandName);
+  /**
+   * Takes info about a command and calls the handler if it exists, otherwise, returns false to indicate that the command doesn't exist
+   * @param name The name of the command being called, must be in the format of `parent.subcommandgroup.subcommand`
+   * @param interaction The interaction object
+   */
+  async handleCommand(
+    name: string,
+    interaction: ConnectorTypes['ChatInputCommandInteraction']
+  ) {
+    const command = this.commandMap.get(name);
     if (!command) {
-      this.logger?.error(`Unregistered command ${commandName} being run`);
-      throw new Error(`Unregistered command ${commandName} was run`);
+      return false;
     } else {
-      this.logger?.info(`Running command ${commandName}`);
-      const optionsObj = await command.validateAndTransformOptions(interaction);
+      this.logger?.info(`Running command ${name}`);
+      const optionsObj = await command.validateAndTransformOptions(
+        interaction,
+        this.connector
+      );
       // If there is errors, we want to send them back to the user
       if (Array.isArray(optionsObj)) {
-        await interaction.reply({
+        await this.connector.replyToInteraction(interaction, {
           content: optionsObj.join('\n'),
-          ephemeral: true,
+          flags: 1 << 6,
         });
         return;
       }
@@ -945,433 +852,417 @@ export class SlashasaurusClient extends Client<true> {
         this,
         optionsObj
       );
+      return true;
     }
   }
 
-  private async handleAutocomplete(interaction: AutocompleteInteraction) {
-    let commandName = interaction.commandName;
-    // @ts-expect-error This is TS-private, but I know what I'm doing
-    if (interaction.options._group) {
-      // @ts-expect-error This is TS-private, but I know what I'm doing
-      commandName += '.' + interaction.options._group;
-    }
-    // @ts-expect-error This is TS-private, but I know what I'm doing
-    if (interaction.options._subcommand) {
-      // @ts-expect-error This is TS-private, but I know what I'm doing
-      commandName += '.' + interaction.options._subcommand;
-    }
-    const command = this.commandMap.get(commandName);
+  /**
+   * Takes info about a command and calls the autocomplete handler if it exists, otherwise, returns false to indicate that the command doesn't exist
+   * @param name The name of the command being called, must be in the format of `parent.subcommandgroup.subcommand`
+   * @param focusedName The name of the option that is being focused
+   * @param focusedValue The value of the option that is being focused
+   * @param interaction The interaction object
+   */
+  async handleAutocomplete(
+    name: string,
+    focusedName: string,
+    focusedValue: unknown,
+    interaction: ConnectorTypes['AutocompleteInteraction']
+  ) {
+    const command = this.commandMap.get(name);
     if (!command) {
-      interaction.respond([]);
-    } else {
-      const optionsObj = await command.validateAndTransformOptions(
+      return false;
+    }
+    const optionsObj = await command.validateAndTransformOptions(
+      interaction,
+      this.connector,
+      true,
+      this.skipAutocompleteValidationAndTransformation
+    );
+    const autocompleteFn = command.autocompleteMap.get(focusedName);
+    if (autocompleteFn) {
+      await this.autocompleteMiddleware.execute(
+        (interaction, _name, value, client) => {
+          autocompleteFn(interaction, value, client);
+        },
         interaction,
-        true,
-        this.skipAutocompleteValidationAndTransformation
+        // @ts-expect-error this counts as never, but we know it's right
+        focusedName,
+        focusedValue,
+        this,
+        optionsObj
       );
-      const focused = interaction.options.getFocused(true);
-      const autocompleteFn = command.autocompleteMap.get(focused.name);
-      if (autocompleteFn) {
-        await this.autocompleteMiddleware.execute(
-          (interaction, _name, value, client) => {
-            autocompleteFn(interaction, value, client);
-          },
-          interaction,
-          // @ts-expect-error This will complain because the autocomplete is typed here with []
-          focused.name,
-          focused.value,
-          this,
-          optionsObj
-        );
-      } else {
-        // @ts-expect-error This will complain because the autocomplete is typed here with []
-        await this.autocompleteMiddleware.execute(
-          command.autocomplete,
-          interaction,
-          // @ts-expect-error This will complain because the autocomplete is typed here with []
-          focused.name,
-          focused.value,
-          this,
-          optionsObj
-        );
-      }
+      return true;
+    } else {
+      // @ts-expect-error This will complain because the autocomplete is typed here with []
+      await this.autocompleteMiddleware.execute(
+        command.autocomplete,
+        interaction,
+        // @ts-expect-error this counts as never, but we know it's right
+        focusedName,
+        focusedValue,
+        this,
+        optionsObj
+      );
+      return true;
     }
   }
 
-  private async handleContextMenu(interaction: ContextMenuCommandInteraction) {
-    const commandName = interaction.commandName;
+  /**
+   * Takes info about a context menu command and calls the handler if it exists, otherwise, returns false to indicate that the command doesn't exist
+   * @param name The name of the command being called
+   * @param type The command type
+   * @param interaction The interaction object
+   */
+  async handleContextMenu(
+    name: string,
+    type: 2 | 3,
+    interaction: ConnectorTypes['ContextMenuCommandInteraction']
+  ) {
     const command =
-      interaction.commandType === ApplicationCommandType.Message
-        ? this.messageContextMenuMap.get(commandName)
-        : this.userContextMenuMap.get(commandName);
+      type === 2
+        ? this.messageContextMenuMap.get(name)
+        : this.userContextMenuMap.get(name);
     if (!command) {
-      this.logger?.error(
-        `Unregistered context command ${commandName} being run`
-      );
-      throw new Error(`Unregistered command ${commandName} was run`);
+      return false;
     } else {
-      this.logger?.info(`Running context command ${commandName}`);
-      // @ts-expect-error This is going to complain because the context menu handler is typed with a more specific type
+      this.logger?.info(`Running context command ${name}`);
+      // @ts-expect-error This is fine
       this.contextMenuMiddleware.execute(command.run, interaction, this);
+      return true;
     }
   }
 
-  private async handlePageButton(interaction: ButtonInteraction) {
-    let page = this.activePages.get(interaction.message.id);
-    if (!page) {
-      page = await this.getPageFromMessage(interaction.message.id, interaction);
-      if (!page) {
-        return;
-      }
-      this.activePages.set(interaction.message.id, page);
-      const renderedPage = await page.render();
-      if (!compareMessages(interaction.message, renderedPage)) {
-        await interaction.update({
-          content: null,
-          embeds: [],
-          ...renderedPage,
-          components: renderedPage.components
-            ? pageComponentRowsToComponents(renderedPage.components, page)
-            : [],
-          fetchReply: true,
-          flags: renderedPage.flags as any,
-        });
-        interaction.followUp({
-          content:
-            "An older version of this page was stored, it's been updated. Click the button you want again.",
-          ephemeral: true,
-        });
-        return;
-      }
-    }
-    const message = page.message;
-    if (message instanceof PageInteractionReplyMessage) {
-      // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
-      page.message = new PageInteractionReplyMessage(
-        interaction.webhook,
-        message.id
-      );
-      // Store the updated page
-      const state = await page.serializeState();
-      this.storePageState(
-        page.message.id,
-        page.constructor.pageId,
-        state,
-        messageToMessageData(page.message)
-      );
-    }
-    page.latestInteraction = interaction;
-    page.handleId(interaction.customId.split(';')[1], interaction);
-  }
+  // #region Page component handlers
+  // TODO redo this with connector
+  // private async handlePageButton(
+  //   interaction: ConnectorTypes['ButtonInteraction']
+  // ) {
+  //   let page = this.activePages.get(interaction.message.id);
+  //   if (!page) {
+  //     page = await this.getPageFromMessage(interaction.message.id, interaction);
+  //     if (!page) {
+  //       return;
+  //     }
+  //     this.activePages.set(interaction.message.id, page);
+  //     const renderedPage = await page.render();
+  //     if (!compareMessages(interaction.message, renderedPage)) {
+  //       await interaction.update({
+  //         content: null,
+  //         embeds: [],
+  //         ...renderedPage,
+  //         components: renderedPage.components
+  //           ? pageComponentRowsToComponents(renderedPage.components, page)
+  //           : [],
+  //         fetchReply: true,
+  //         flags: renderedPage.flags,
+  //       });
+  //       interaction.followUp({
+  //         content:
+  //           "An older version of this page was stored, it's been updated. Click the button you want again.",
+  //         ephemeral: true,
+  //       });
+  //       return;
+  //     }
+  //   }
+  //   const message = page.message;
+  //   if (message instanceof PageInteractionReplyMessage) {
+  //     // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
+  //     page.message = new PageInteractionReplyMessage(
+  //       interaction.webhook,
+  //       message.id
+  //     );
+  //     // Store the updated page
+  //     const state = await page.serializeState();
+  //     this.storePageState(
+  //       page.message.id,
+  //       page.constructor.pageId,
+  //       state,
+  //       this.connector.messageToMessageData(page.message)
+  //     );
+  //   }
+  //   page.latestInteraction = interaction;
+  //   page.handleId(interaction.data.custom_id.split(';')[1], interaction);
+  // }
 
-  private async handlePageSelect(
-    interaction:
-      | SelectMenuInteraction
-      | UserSelectMenuInteraction
-      | RoleSelectMenuInteraction
-      | ChannelSelectMenuInteraction
-      | MentionableSelectMenuInteraction
-  ) {
-    let page = this.activePages.get(interaction.message.id);
-    if (!page) {
-      page = await this.getPageFromMessage(interaction.message.id, interaction);
-      if (!page) {
-        return;
-      }
-      this.activePages.set(interaction.message.id, page);
-      const renderedPage = await page.render();
-      if (!compareMessages(interaction.message, renderedPage)) {
-        await interaction.update({
-          ...renderedPage,
-          components: renderedPage.components
-            ? pageComponentRowsToComponents(renderedPage.components, page)
-            : [],
-          fetchReply: true,
-          flags: renderedPage.flags as any,
-        });
-        interaction.followUp({
-          content:
-            "An older version of this page was stored, it's been updated. Make your selection again.",
-          ephemeral: true,
-        });
-        return;
-      }
-    }
-    const message = page.message;
-    if (message instanceof PageInteractionReplyMessage) {
-      // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
-      page.message = new PageInteractionReplyMessage(
-        interaction.webhook,
-        message.id
-      );
-      // Store the updated page
-      const state = await page.serializeState();
-      this.storePageState(
-        page.message.id,
-        page.constructor.pageId,
-        state,
-        messageToMessageData(page.message)
-      );
-    }
-    page.latestInteraction = interaction;
-    page.handleId(interaction.customId.split(';')[1], interaction);
-  }
+  // private async handlePageSelect(
+  //   interaction: ConnectorTypes['SelectMenuInteraction']
+  // ) {
+  //   let page = this.activePages.get(interaction.message.id);
+  //   if (!page) {
+  //     page = await this.getPageFromMessage(interaction.message.id, interaction);
+  //     if (!page) {
+  //       return;
+  //     }
+  //     this.activePages.set(interaction.message.id, page);
+  //     const renderedPage = await page.render();
+  //     if (!compareMessages(interaction.message, renderedPage)) {
+  //       await interaction.update({
+  //         ...renderedPage,
+  //         components: renderedPage.components
+  //           ? pageComponentRowsToComponents(renderedPage.components, page)
+  //           : [],
+  //         fetchReply: true,
+  //         flags: renderedPage.flags,
+  //       });
+  //       interaction.followUp({
+  //         content:
+  //           "An older version of this page was stored, it's been updated. Make your selection again.",
+  //         ephemeral: true,
+  //       });
+  //       return;
+  //     }
+  //   }
+  //   const message = page.message;
+  //   if (message instanceof PageInteractionReplyMessage) {
+  //     // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
+  //     page.message = new PageInteractionReplyMessage(
+  //       interaction.webhook,
+  //       message.id
+  //     );
+  //     // Store the updated page
+  //     const state = await page.serializeState();
+  //     this.storePageState(
+  //       page.message.id,
+  //       page.constructor.pageId,
+  //       state,
+  //       this.connector.messageToMessageData(page.message)
+  //     );
+  //   }
+  //   page.latestInteraction = interaction;
+  //   page.handleId(interaction.data.custom_id.split(';')[1], interaction);
+  // }
 
-  private async handleModalSubmit(interaction: ModalSubmitInteraction) {
-    const modal = this.modalMap.get(interaction.customId);
-    if (!modal) return;
-    const values: Record<string, string> = {};
-    interaction.fields.fields.forEach((field) => {
-      values[field.customId] = field.value;
-    });
-    modal.handler(interaction, values);
-  }
+  // #region Modal handlers
+  // TODO need to fully redo this
+  // private async handleModalSubmit(
+  //   interaction: ConnectorTypes['ModalSubmitInteraction']
+  // ) {
+  //   const modal = this.modalMap.get(interaction.customId);
+  //   if (!modal) return;
+  //   const values: Record<string, string> = {};
+  //   interaction.data.components.fields.forEach((field) => {
+  //     values[field.customId] = field.value;
+  //   });
+  //   modal.handler(interaction, values);
+  // }
 
-  async replyToInteractionWithPage<P, S>(
-    page: Page<P, S>,
-    interaction: MessageComponentInteraction | CommandInteraction,
-    ephemeral: boolean
-  ) {
-    const messageOptions = await page.render();
-    if (ephemeral) {
-      // We need to save the interaction instead since it doesn't return a message we can edit
-      const message = await interaction.reply({
-        ...messageOptions,
-        content: messageOptions.content ?? undefined,
-        components: messageOptions.components
-          ? pageComponentRowsToComponents(messageOptions.components, page)
-          : [],
-        ephemeral: true,
-        fetchReply: true,
-        flags: messageOptions.flags as unknown as BitFieldResolvable<
-          'SuppressEmbeds' | 'Ephemeral',
-          number
-        >,
-      });
-      page.message = new PageInteractionReplyMessage(
-        interaction.webhook,
-        message.id
-      );
-      const state = await page.serializeState();
-      this.storePageState(
-        message.id,
-        page.constructor.pageId,
-        state,
-        messageToMessageData(page.message)
-      );
-      this.activePages.set(message.id, page);
-    } else {
-      const message = await interaction.reply({
-        ...messageOptions,
-        content: messageOptions.content ?? undefined,
-        components: messageOptions.components
-          ? pageComponentRowsToComponents(messageOptions.components, page)
-          : [],
-        fetchReply: true,
-        flags: messageOptions.flags as unknown as BitFieldResolvable<
-          'SuppressEmbeds' | 'Ephemeral',
-          number
-        >,
-      });
-      page.message = new PageInteractionReplyMessage(
-        interaction.webhook,
-        message.id
-      );
-      const state = await page.serializeState();
-      this.storePageState(
-        message.id,
-        page.constructor.pageId,
-        state,
-        messageToMessageData(page.message)
-      );
-      this.activePages.set(message.id, page);
-    }
-    page.pageDidSend?.();
-  }
+  // #region More Page stuff
+  // async replyToInteractionWithPage<P, S>(
+  //   page: Page<P, S>,
+  //   interaction:
+  //     | ConnectorTypes['MessageComponentInteraction']
+  //     | ConnectorTypes['CommandInteraction'],
+  //   ephemeral: boolean
+  // ) {
+  //   const messageOptions = await page.render();
+  //   if (ephemeral) {
+  //     // We need to save the interaction instead since it doesn't return a message we can edit
+  //     const message = await interaction.reply({
+  //       ...messageOptions,
+  //       content: messageOptions.content ?? undefined,
+  //       components: messageOptions.components
+  //         ? pageComponentRowsToComponents(messageOptions.components, page)
+  //         : [],
+  //       ephemeral: true,
+  //       fetchReply: true,
+  //       flags: messageOptions.flags,
+  //     });
+  //     page.message = new PageInteractionReplyMessage(
+  //       interaction.webhook,
+  //       message.id
+  //     );
+  //     const state = await page.serializeState();
+  //     this.storePageState(
+  //       message.id,
+  //       page.constructor.pageId,
+  //       state,
+  //       messageToMessageData(page.message)
+  //     );
+  //     this.activePages.set(message.id, page);
+  //   } else {
+  //     const message = await interaction.reply({
+  //       ...messageOptions,
+  //       content: messageOptions.content ?? undefined,
+  //       components: messageOptions.components
+  //         ? pageComponentRowsToComponents(messageOptions.components, page)
+  //         : [],
+  //       fetchReply: true,
+  //       flags: messageOptions.flags,
+  //     });
+  //     page.message = new PageInteractionReplyMessage(
+  //       interaction.webhook,
+  //       message.id
+  //     );
+  //     const state = await page.serializeState();
+  //     this.storePageState(
+  //       message.id,
+  //       page.constructor.pageId,
+  //       state,
+  //       messageToMessageData(page.message)
+  //     );
+  //     this.activePages.set(message.id, page);
+  //   }
+  //   page.pageDidSend?.();
+  // }
 
-  async sendPageToChannel<P, S>(page: Page<P, S>, channel: TextBasedChannel) {
-    const messageOptions = await page.render();
-    const message = await channel.send({
-      ...messageOptions,
-      content: messageOptions.content ?? undefined,
-      components: messageOptions.components
-        ? pageComponentRowsToComponents(messageOptions.components, page)
-        : [],
-    });
-    page.message = message;
-    const state = await page.serializeState();
-    this.storePageState(
-      message.id,
-      page.constructor.pageId,
-      state,
-      messageToMessageData(page.message)
-    );
-    this.activePages.set(message.id, page);
-    page.pageDidSend?.();
-  }
+  // async sendPageToChannel<P, S>(
+  //   page: Page<P, S>,
+  //   channel: T['TextBasedChannel']
+  // ) {
+  //   const messageOptions = await page.render();
+  //   const message = await channel.send({
+  //     ...messageOptions,
+  //     content: messageOptions.content ?? undefined,
+  //     components: messageOptions.components
+  //       ? pageComponentRowsToComponents(messageOptions.components, page)
+  //       : [],
+  //   });
+  //   page.message = message;
+  //   const state = await page.serializeState();
+  //   this.storePageState(
+  //     message.id,
+  //     page.constructor.pageId,
+  //     state,
+  //     messageToMessageData(page.message)
+  //   );
+  //   this.activePages.set(message.id, page);
+  //   page.pageDidSend?.();
+  // }
 
-  async sendPageToForumChannel<P, S>(
-    page: Page<P, S>,
-    postTitle: string,
-    channel: ForumChannel
-  ) {
-    const messageOptions = await page.render();
-    const thread = await channel.threads.create({
-      name: postTitle,
-      message: {
-        ...messageOptions,
-        content: messageOptions.content ?? undefined,
-        components: messageOptions.components
-          ? pageComponentRowsToComponents(messageOptions.components, page)
-          : [],
-      },
-    });
-    page.message = thread.lastMessage!;
-    const state = await page.serializeState();
-    this.storePageState(
-      thread.lastMessage!.id,
-      page.constructor.pageId,
-      state,
-      messageToMessageData(page.message)
-    );
-    this.activePages.set(thread.lastMessage!.id, page);
-  }
+  // async sendPageToForumChannel<P, S>(
+  //   page: Page<P, S>,
+  //   postTitle: string,
+  //   channel: ForumChannel
+  // ) {
+  //   const messageOptions = await page.render();
+  //   const thread = await channel.threads.create({
+  //     name: postTitle,
+  //     message: {
+  //       ...messageOptions,
+  //       content: messageOptions.content ?? undefined,
+  //       components: messageOptions.components
+  //         ? pageComponentRowsToComponents(messageOptions.components, page)
+  //         : [],
+  //     },
+  //   });
+  //   page.message = thread.lastMessage!;
+  //   const state = await page.serializeState();
+  //   this.storePageState(
+  //     thread.lastMessage!.id,
+  //     page.constructor.pageId,
+  //     state,
+  //     messageToMessageData(page.message)
+  //   );
+  //   this.activePages.set(thread.lastMessage!.id, page);
+  // }
 
-  async updatePage<P, S>(page: Page<P, S>, newState: S) {
-    if (!page.message)
-      throw new Error('You cannot update a page before it has been sent');
-    page.state = newState;
-    const messageOptions = await page.render();
-    const { message } = page;
-    if (
-      message instanceof PageInteractionReplyMessage &&
-      page.latestInteraction &&
-      !(page.latestInteraction.deferred || page.latestInteraction.replied)
-    ) {
-      await page.latestInteraction.update({
-        ...messageOptions,
-        components: messageOptions.components
-          ? pageComponentRowsToComponents(messageOptions.components, page)
-          : [],
-        flags: messageOptions.flags as any,
-      });
-    } else {
-      await message.edit({
-        ...messageOptions,
-        components: messageOptions.components
-          ? pageComponentRowsToComponents(messageOptions.components, page)
-          : [],
-        flags: messageOptions.flags as any,
-      });
-    }
-    const state = await page.serializeState();
-    this.activePages.set(message.id, page);
-    this.storePageState(
-      page.message instanceof Message ? page.message.id : page.message.id,
-      page.constructor.pageId,
-      state,
-      messageToMessageData(page.message)
-    );
-  }
+  // async updatePage<P, S>(page: Page<P, S>, newState: S) {
+  //   if (!page.message)
+  //     throw new Error('You cannot update a page before it has been sent');
+  //   page.state = newState;
+  //   const messageOptions = await page.render();
+  //   const { message } = page;
+  //   if (
+  //     message instanceof PageInteractionReplyMessage &&
+  //     page.latestInteraction &&
+  //     !(page.latestInteraction.deferred || page.latestInteraction.replied)
+  //   ) {
+  //     await page.latestInteraction.update({
+  //       ...messageOptions,
+  //       components: messageOptions.components
+  //         ? pageComponentRowsToComponents(messageOptions.components, page)
+  //         : [],
+  //       flags: messageOptions.flags as any,
+  //     });
+  //   } else {
+  //     await message.edit({
+  //       ...messageOptions,
+  //       components: messageOptions.components
+  //         ? pageComponentRowsToComponents(messageOptions.components, page)
+  //         : [],
+  //       flags: messageOptions.flags as any,
+  //     });
+  //   }
+  //   const state = await page.serializeState();
+  //   this.activePages.set(message.id, page);
+  //   this.storePageState(
+  //     page.message.id,
+  //     page.constructor.pageId,
+  //     state,
+  //     messageToMessageData(page.message)
+  //   );
+  // }
 
-  async getPageFromMessage(
-    messageOrId: Message | string,
-    interaction: MessageComponentInteraction | CommandInteraction
-  ) {
-    const id = typeof messageOrId === 'string' ? messageOrId : messageOrId.id;
-    const cachedPage = this.activePages.get(id);
-    if (!cachedPage) {
-      const { pageId, stateString, messageData } = await this.getPageState(id);
-      const message =
-        messageOrId instanceof Message
-          ? messageOrId
-          : await this.getMessage(JSON.parse(messageData));
-      if (!message)
-        throw new Error(
-          `Failed to load Page message. ${JSON.stringify(messageData)}`
-        );
-      const { page: pageConstructor, deserialize } =
-        this.pageMap.get(pageId) ?? {};
-      if (!pageConstructor || !deserialize)
-        throw new Error(
-          `A component tried to load a page type that isn't registered, ${pageId}`
-        );
-      const deserialized = await deserialize(stateString, interaction);
-      if (!('props' in deserialized)) {
-        if (message instanceof Message) {
-          await message.delete();
-        } else {
-          await message.edit({
-            content: 'This page has been closed',
-            components: [],
-          });
-        }
-        return;
-      }
-      const { props, state } = deserialized;
-      // @ts-expect-error will complain, but we know this is a constructor and JS will complain if we don't do `new`
-      const newPage: Page = new pageConstructor(props);
-      newPage.state = state;
-      newPage.message = message;
-      const rendered = await newPage.render();
-      if (rendered.components)
-        pageComponentRowsToComponents(rendered.components, newPage);
-      this.activePages.set(message.id, newPage);
-      return newPage;
-    }
-    return cachedPage;
-  }
+  // async getPageFromMessage(
+  //   messageId: string,
+  //   interaction: T['MessageComponentInteraction'] | T['CommandInteraction']
+  // ) {
+  //   const cachedPage = this.activePages.get(messageId);
+  //   if (!cachedPage) {
+  //     const { pageId, stateString, messageData } = await this.getPageState(
+  //       messageId
+  //     );
+  //     const message = await this.getMessage(JSON.parse(messageData));
+  //     if (!message)
+  //       throw new Error(
+  //         `Failed to load Page message. ${JSON.stringify(messageData)}`
+  //       );
+  //     const { page: pageConstructor, deserialize } =
+  //       this.pageMap.get(pageId) ?? {};
+  //     if (!pageConstructor || !deserialize)
+  //       throw new Error(
+  //         `A component tried to load a page type that isn't registered, ${pageId}`
+  //       );
+  //     const deserialized = await deserialize(stateString, interaction);
+  //     if (!('props' in deserialized)) {
+  //       if (message instanceof Message) {
+  //         await message.delete();
+  //       } else {
+  //         await message.edit({
+  //           content: 'This page has been closed',
+  //           components: [],
+  //         });
+  //       }
+  //       return;
+  //     }
+  //     const { props, state } = deserialized;
+  //     // @ts-expect-error will complain, but we know this is a constructor and JS will complain if we don't do `new`
+  //     const newPage: Page = new pageConstructor(props);
+  //     newPage.state = state;
+  //     newPage.message = message;
+  //     const rendered = await newPage.render();
+  //     if (rendered.components)
+  //       pageComponentRowsToComponents(rendered.components, newPage);
+  //     this.activePages.set(message.id, newPage);
+  //     return newPage;
+  //   }
+  //   return cachedPage;
+  // }
 
-  private async getMessage(messageData: MessageData | InteractionMessageData) {
-    if ('guildId' in messageData) {
-      try {
-        if (messageData.guildId !== 'dm') {
-          const guild = await this.guilds.fetch(messageData.guildId);
-          const channel = await guild.channels.fetch(messageData.channelId);
-          if (!(channel instanceof BaseGuildTextChannel))
-            throw new Error(
-              `Channel for saved Page was not a text channel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
-            );
-          return channel.messages.fetch(messageData.messageId);
-        } else {
-          const channel = await this.channels.fetch(messageData.channelId);
-          if (!(channel instanceof DMChannel))
-            throw new Error(
-              `Channel for saved Page was not a DMChannel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
-            );
-        }
-      } catch (e) {
-        throw new Error(
-          `Tried to fetch a message the bot can no longer see: ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
-        );
-      }
-    } else {
-      return new PageInteractionReplyMessage(
-        new InteractionWebhook(
-          this,
-          this.application.id,
-          messageData.webhookToken
-        ),
-        messageData.messageId
-      );
-    }
-    return;
-  }
-}
-
-function messageToMessageData(
-  message: Message | PageInteractionReplyMessage
-): string {
-  if (message instanceof Message) {
-    return JSON.stringify({
-      messageId: message.id,
-      channelId: message.channelId,
-      guildId: message.guildId ?? 'dm',
-    });
-  } else {
-    return JSON.stringify({
-      webhookToken: message.webhook.token,
-      messageId: message.id,
-    });
-  }
+  // private async getMessage(messageData: MessageData | InteractionMessageData) {
+  //   if ('guildId' in messageData) {
+  //     try {
+  //       if (messageData.guildId !== 'dm') {
+  //         return await this.connector.getGuildMessage(messageData);
+  //       } else {
+  //         return await this.connector.getDMMessage(messageData);
+  //       }
+  //     } catch (e) {
+  //       throw new Error(
+  //         `Tried to fetch a message the bot can no longer see: ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
+  //       );
+  //     }
+  //   } else {
+  //     return new PageInteractionReplyMessage(
+  //       this.connector.createInteractionWebhook(
+  //         this.client,
+  //         this.connector.getApplicationId(this.client),
+  //         messageData.webhookToken
+  //       ),
+  //       messageData.messageId
+  //     );
+  //   }
+  //   return;
+  // }
 }

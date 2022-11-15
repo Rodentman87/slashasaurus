@@ -1,32 +1,31 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
-  AutocompleteInteraction,
-  ChatInputCommandInteraction,
-  InteractionType,
-  SlashCommandAttachmentOption,
-  SlashCommandBooleanOption,
-  SlashCommandBuilder,
-  SlashCommandChannelOption,
-  SlashCommandIntegerOption,
-  SlashCommandMentionableOption,
-  SlashCommandNumberOption,
-  SlashCommandRoleOption,
-  SlashCommandStringOption,
-  SlashCommandSubcommandBuilder,
-  SlashCommandUserOption,
-} from 'discord.js';
-import {
-  LocalizationMap,
-  ApplicationCommandOptionType,
+	ApplicationCommandOptionType,
+	LocalizationMap,
 } from 'discord-api-types/v10';
+import {
+	ChatInputCommandInteraction,
+	SlashCommandAttachmentOption,
+	SlashCommandBooleanOption,
+	SlashCommandBuilder,
+	SlashCommandChannelOption,
+	SlashCommandIntegerOption,
+	SlashCommandMentionableOption,
+	SlashCommandNumberOption,
+	SlashCommandRoleOption,
+	SlashCommandStringOption,
+	SlashCommandSubcommandBuilder,
+	SlashCommandUserOption
+} from 'discord.js';
+import { Connector } from './Connector';
+import { ValidationError } from './CustomErrors';
+import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import {
-  MapOptionsToAutocompleteNames,
-  CommandOptionsObject,
-  MaybePromise,
+	CommandOptionsObject,
+	MapOptionsToAutocompleteNames,
+	MaybePromise,
 } from './utilityTypes';
-import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
-import { ValidationError } from './CustomErrors';
 
 type ChatCommandOptions<T extends OptionsDataArray> = {
   name: string;
@@ -66,13 +65,13 @@ export function isCommandGroupMetadata(arg: any): arg is CommandGroupMetadata {
 }
 
 export type CommandRunFunction<T extends OptionsDataArray> = (
-  interaction: ChatInputCommandInteraction,
+  interaction: ConnectorTypes['ChatInputCommandInteraction'],
   client: SlashasaurusClient,
   options: CommandOptionsObject<T>
 ) => void;
 
 export type AutocompleteFunction<T extends OptionsDataArray> = (
-  interaction: AutocompleteInteraction,
+  interaction: ConnectorTypes['AutocompleteInteraction'],
   focusedName: MapOptionsToAutocompleteNames<T>,
   focusedValue: string | number,
   client: SlashasaurusClient,
@@ -108,9 +107,9 @@ export class SlashCommand<const T extends OptionsDataArray> {
   autocompleteMap: Map<
     string,
     (
-      interaction: AutocompleteInteraction,
+      interaction: ConnectorTypes['AutocompleteInteraction'],
       value: any,
-      client: SlashasaurusClient
+      client: SlashasaurusClient,
     ) => MaybePromise<any>
   > = new Map();
 
@@ -137,62 +136,49 @@ export class SlashCommand<const T extends OptionsDataArray> {
   }
 
   run(
-    interaction: ChatInputCommandInteraction,
+    _interaction: ConnectorTypes['ChatInputCommandInteraction'],
     _client: SlashasaurusClient,
     _options: CommandOptionsObject<T>
   ) {
-    interaction.reply({
-      content: 'This command is not implemented yet',
-      ephemeral: true,
-    });
+		throw new Error("not implemented");
   }
 
   autocomplete(
-    interaction: AutocompleteInteraction,
+    _interaction: ConnectorTypes['AutocompleteInteraction'],
     _focusedName: MapOptionsToAutocompleteNames<T>,
     _focusedValue: string | number,
     _client: SlashasaurusClient,
     _options: Partial<CommandOptionsObject<T>>
   ) {
-    interaction.respond([
-      {
-        name: "This interaction isn't implemented yet",
-        value: 'error',
-      },
-    ]);
+		throw new Error("not implemented");
   }
 
   async validateAndTransformOptions(
-    interaction: ChatInputCommandInteraction
+    interaction: ConnectorTypes['ChatInputCommandInteraction'],
+		connector: Connector,
   ): Promise<CommandOptionsObject<T> | string[]>;
   async validateAndTransformOptions(
-    interaction: AutocompleteInteraction,
+    interaction: ConnectorTypes['AutocompleteInteraction'],
+		connector: Connector,
     skipRequiredCheck: boolean,
     skipValidationAndTransformation: boolean
   ): Promise<CommandOptionsObject<T>>;
   async validateAndTransformOptions(
-    interaction: ChatInputCommandInteraction | AutocompleteInteraction,
+    interaction: ConnectorTypes['ChatInputCommandInteraction'] | ConnectorTypes['AutocompleteInteraction'],
+		connector: Connector,
     skipRequiredCheck = false,
     skipValidationAndTransformation = false
   ): Promise<CommandOptionsObject<T> | string[]> {
     const errors: string[] = [];
-    const values: Record<string, ReturnType<typeof getCommandDataForType>> = {};
+    const values: Record<string, any> = {};
     for (const option of this.commandInfo.options) {
       // Get the option data
-      let value =
-        interaction.type === InteractionType.ApplicationCommand
-          ? getCommandDataForType(
-              interaction,
-              option.type,
-              option.name,
-              skipRequiredCheck ? false : option.required ?? false
-            )
-          : getAutocompleteDataForType(
-              interaction,
-              option.type,
-              option.name,
-              skipRequiredCheck ? false : option.required ?? false
-            );
+      let value = connector.getOptionValue(
+				interaction,
+				option.type,
+				option.name,
+				skipRequiredCheck ? false : option.required ?? false
+			);
 
       // If the value is undefined, assign early and continue to skip the rest of the validation and transformation
       if (value === null) {
@@ -251,71 +237,6 @@ export class SlashCommand<const T extends OptionsDataArray> {
   }
 }
 
-function getCommandDataForType(
-  interaction: ChatInputCommandInteraction,
-  type: ApplicationCommandOptionData['type'],
-  name: string,
-  required: boolean
-) {
-  switch (type) {
-    case 'STRING':
-    case ApplicationCommandOptionType.String:
-      return interaction.options.getString(name, required);
-    case 'INTEGER':
-    case ApplicationCommandOptionType.Integer:
-      return interaction.options.getInteger(name, required);
-    case 'BOOLEAN':
-    case ApplicationCommandOptionType.Boolean:
-      return interaction.options.getBoolean(name, required);
-    case 'USER':
-    case ApplicationCommandOptionType.User:
-      if (interaction.inGuild())
-        return (
-          interaction.options.getMember(name) ??
-          interaction.options.getUser(name, required)
-        );
-      return interaction.options.getUser(name, required);
-    case 'CHANNEL':
-    case ApplicationCommandOptionType.Channel:
-      return interaction.options.getChannel(name, required);
-    case 'ROLE':
-    case ApplicationCommandOptionType.Role:
-      return interaction.options.getRole(name, required);
-    case 'MENTIONABLE':
-    case ApplicationCommandOptionType.Mentionable:
-      return interaction.options.getMentionable(name, required);
-    case 'NUMBER':
-    case ApplicationCommandOptionType.Number:
-      return interaction.options.getNumber(name, required);
-    case 'ATTACHMENT':
-    case ApplicationCommandOptionType.Attachment:
-      return interaction.options.getAttachment(name, required);
-  }
-}
-
-function getAutocompleteDataForType(
-  interaction: AutocompleteInteraction,
-  type: ApplicationCommandOptionData['type'],
-  name: string,
-  required: boolean
-) {
-  switch (type) {
-    case 'STRING':
-    case ApplicationCommandOptionType.String:
-      return interaction.options.getString(name, required);
-    case 'INTEGER':
-    case ApplicationCommandOptionType.Integer:
-      return interaction.options.getInteger(name, required);
-    case 'BOOLEAN':
-    case ApplicationCommandOptionType.Boolean:
-      return interaction.options.getBoolean(name, required);
-    case 'NUMBER':
-    case ApplicationCommandOptionType.Number:
-      return interaction.options.getNumber(name, required);
-  }
-  return null;
-}
-
 export function populateBuilder<
   T extends SlashCommandBuilder | SlashCommandSubcommandBuilder
 >(info: ChatCommandOptions<[]>, builder: T) {
@@ -341,7 +262,6 @@ export function populateBuilder<
       attachment;
     switch (option.type) {
       case ApplicationCommandOptionType.String:
-      case 'STRING':
         string = new SlashCommandStringOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -365,7 +285,6 @@ export function populateBuilder<
         builder.addStringOption(string);
         break;
       case ApplicationCommandOptionType.Integer:
-      case 'INTEGER':
         integer = new SlashCommandIntegerOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -389,7 +308,6 @@ export function populateBuilder<
         builder.addIntegerOption(integer);
         break;
       case ApplicationCommandOptionType.Boolean:
-      case 'BOOLEAN':
         boolean = new SlashCommandBooleanOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -399,7 +317,6 @@ export function populateBuilder<
         builder.addBooleanOption(boolean);
         break;
       case ApplicationCommandOptionType.User:
-      case 'USER':
         user = new SlashCommandUserOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -409,7 +326,6 @@ export function populateBuilder<
         builder.addUserOption(user);
         break;
       case ApplicationCommandOptionType.Channel:
-      case 'CHANNEL':
         channel = new SlashCommandChannelOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -423,7 +339,6 @@ export function populateBuilder<
         builder.addChannelOption(channel);
         break;
       case ApplicationCommandOptionType.Role:
-      case 'ROLE':
         role = new SlashCommandRoleOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -433,7 +348,6 @@ export function populateBuilder<
         builder.addRoleOption(role);
         break;
       case ApplicationCommandOptionType.Mentionable:
-      case 'MENTIONABLE':
         mentionable = new SlashCommandMentionableOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -443,7 +357,6 @@ export function populateBuilder<
         builder.addMentionableOption(mentionable);
         break;
       case ApplicationCommandOptionType.Number:
-      case 'NUMBER':
         number = new SlashCommandNumberOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)
@@ -467,7 +380,6 @@ export function populateBuilder<
         builder.addNumberOption(number);
         break;
       case ApplicationCommandOptionType.Attachment:
-      case 'ATTACHMENT':
         attachment = new SlashCommandAttachmentOption()
           .setName(option.name)
           .setNameLocalizations(option.nameLocalizations ?? null)

@@ -1,28 +1,27 @@
 import { SelectMenuBuilder } from '@discordjs/builders';
 import {
+  APISelectMenuOption,
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
+  ChannelSelectMenuBuilder,
+  ChannelSelectMenuComponentData,
+  ChannelSelectMenuInteraction,
+  ChannelType,
   ComponentEmojiResolvable,
   ComponentType,
-  MessageComponentInteraction,
-  SelectMenuInteraction,
+  MentionableSelectMenuBuilder,
+  MentionableSelectMenuComponentData,
+  MentionableSelectMenuInteraction,
   parseEmoji,
+  RoleSelectMenuBuilder,
+  RoleSelectMenuComponentData,
+  RoleSelectMenuInteraction,
+  SelectMenuInteraction,
   SelectMenuOptionBuilder,
   UserSelectMenuBuilder,
   UserSelectMenuComponentData,
-  ChannelSelectMenuBuilder,
-  MentionableSelectMenuBuilder,
-  RoleSelectMenuBuilder,
-  RoleSelectMenuComponentData,
   UserSelectMenuInteraction,
-  RoleSelectMenuInteraction,
-  ChannelSelectMenuComponentData,
-  ChannelSelectMenuInteraction,
-  MentionableSelectMenuComponentData,
-  MentionableSelectMenuInteraction,
-  ChannelType,
-  APISelectMenuOption,
 } from 'discord.js';
 
 type NonLinkStyles =
@@ -42,7 +41,7 @@ type PageButtonLabelOptions =
     };
 
 type PotentialDjsComponent = NonNullable<
-  MessageComponentInteraction['message']['components']
+  ConnectorTypes['MessageComponentInteraction']['message']['components']
 >[number]['components'][number];
 
 interface ExportableToDjsComponent {
@@ -249,8 +248,8 @@ export class PageSelect implements ExportableToDjsComponent {
     if (!(component.type === ComponentType.StringSelect)) return false;
     if (
       this.disabled !== component.disabled ||
-      this.maxValues !== component.maxValues ||
-      this.minValues !== component.minValues ||
+      this.maxValues !== component.max_values ||
+      this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
     )
       return false;
@@ -321,8 +320,8 @@ export class PageUserSelect implements ExportableToDjsComponent {
     if (!(component.type === ComponentType.UserSelect)) return false;
     if (
       this.disabled !== component.disabled ||
-      this.maxValues !== component.maxValues ||
-      this.minValues !== component.minValues ||
+      this.maxValues !== component.max_values ||
+      this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
     )
       return false;
@@ -371,8 +370,8 @@ export class PageRoleSelect implements ExportableToDjsComponent {
     if (!(component.type === ComponentType.StringSelect)) return false;
     if (
       this.disabled !== component.disabled ||
-      this.maxValues !== component.maxValues ||
-      this.minValues !== component.minValues ||
+      this.maxValues !== component.max_values ||
+      this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
     )
       return false;
@@ -425,8 +424,8 @@ export class PageChannelSelect implements ExportableToDjsComponent {
     if (!(component.type === ComponentType.ChannelSelect)) return false;
     if (
       this.disabled !== component.disabled ||
-      this.maxValues !== component.maxValues ||
-      this.minValues !== component.minValues ||
+      this.maxValues !== component.max_values ||
+      this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
     )
       return false;
@@ -475,8 +474,8 @@ export class PageMentionableSelect implements ExportableToDjsComponent {
     if (!(component.type === ComponentType.MentionableSelect)) return false;
     if (
       this.disabled !== component.disabled ||
-      this.maxValues !== component.maxValues ||
-      this.minValues !== component.minValues ||
+      this.maxValues !== component.max_values ||
+      this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
     )
       return false;

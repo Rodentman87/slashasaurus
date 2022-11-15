@@ -2,22 +2,15 @@ import { EmbedBuilder } from '@discordjs/builders';
 import {
   ActionRowBuilder,
   APIEmbed,
-  ButtonInteraction,
-  ChannelSelectMenuInteraction,
   CommandInteraction,
-  Embed,
   ForumChannel,
   InteractionWebhook,
-  MentionableSelectMenuInteraction,
   Message,
   MessageActionRowComponentBuilder,
   MessageComponentInteraction,
   MessageCreateOptions,
   MessagePayload,
-  RoleSelectMenuInteraction,
-  SelectMenuInteraction,
   TextBasedChannel,
-  UserSelectMenuInteraction,
   WebhookMessageEditOptions,
 } from 'discord.js';
 import { PageActionRow, PageButton, PageSelect } from './PageComponents';
@@ -95,7 +88,8 @@ export abstract class Page<
   nextId: number;
   message: Message | PageInteractionReplyMessage | null;
   static pageId = DEFAULT_PAGE_ID;
-  latestInteraction: MessageComponentInteraction | null = null;
+  latestInteraction: ConnectorTypes['MessageComponentInteraction'] | null =
+    null;
 
   constructor(props: P) {
     if (!this.constructor._client)
@@ -129,30 +123,32 @@ export abstract class Page<
       ...this.state,
     };
     Object.assign(newState, nextState);
-    await this.client.updatePage(this, newState);
+    // await this.client.updatePage(this, newState);
     return;
   }
 
   sendToChannel(channel: TextBasedChannel) {
-    return this.client.sendPageToChannel(this, channel);
+    // return this.client.sendPageToChannel(this, channel);
   }
 
   sendAsForumPost(channel: ForumChannel, postTitle: string) {
-    return this.client.sendPageToForumChannel(this, postTitle, channel);
+    // return this.client.sendPageToForumChannel(this, postTitle, channel);
   }
 
   sendAsReply(
-    interaction: MessageComponentInteraction | CommandInteraction,
+    interaction:
+      | ConnectorTypes['MessageComponentInteraction']
+      | ConnectorTypes['CommandInteraction'],
     ephemeral = false
   ) {
-    return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
+    // return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async transitionTo(newPage: Page<any, any>) {
     newPage.message = this.message;
     newPage.latestInteraction = this.latestInteraction;
-    await this.client.updatePage(newPage, newPage.state);
+    // await this.client.updatePage(newPage, newPage.state);
     newPage.pageDidSend?.();
     return;
   }
@@ -169,12 +165,12 @@ export abstract class Page<
   handleId(
     id: string,
     interaction:
-      | ButtonInteraction
-      | SelectMenuInteraction
-      | UserSelectMenuInteraction
-      | RoleSelectMenuInteraction
-      | ChannelSelectMenuInteraction
-      | MentionableSelectMenuInteraction
+      | ConnectorTypes['ButtonInteraction']
+      | ConnectorTypes['SelectMenuInteraction']
+      | ConnectorTypes['UserSelectMenuInteraction']
+      | ConnectorTypes['RoleSelectMenuInteraction']
+      | ConnectorTypes['ChannelSelectMenuInteraction']
+      | ConnectorTypes['MentionableSelectMenuInteraction']
   ) {
     const handler = this.handlers.get(id);
     if (handler) {
@@ -273,7 +269,7 @@ function componentToDjsComponent<P, S>(
 }
 
 export function compareMessages(
-  a: MessageComponentInteraction['message'],
+  a: ConnectorTypes['MessageComponentInteraction']['message'],
   b: RenderedPage
 ) {
   if (a.content !== (b.content ?? '')) return false;
@@ -305,8 +301,7 @@ export function compareMessages(
 
   // Check Embeds
   if (
-    a.embeds.filter((e) => e.data.type === 'rich').length !==
-    (b.embeds ?? []).length
+    a.embeds.filter((e) => e.type === 'rich').length !== (b.embeds ?? []).length
   )
     return false;
   if (a.embeds.length > 0) {
@@ -323,7 +318,7 @@ export function compareMessages(
   return true;
 }
 
-function embedsAreEqual(a: Embed, b: APIEmbed) {
+function embedsAreEqual(a: APIEmbed, b: APIEmbed) {
   if (
     a.title !== (b.title ? b.title.trim() : b.title) ||
     a.description !== (b.description ? b.description.trim() : b.description) ||
