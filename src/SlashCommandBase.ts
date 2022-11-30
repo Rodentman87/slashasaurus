@@ -126,11 +126,11 @@ export class SlashCommand<T extends OptionsDataArray> {
       type: 'CHAT_INPUT',
     };
     commandInfo.options.forEach((option) => {
-      if ('validator' in option)
+      if ('validator' in option && option.validator)
         this.validatorsMap.set(option.name, option.validator);
-      if ('transformer' in option)
+      if ('transformer' in option && option.transformer)
         this.transformersMap.set(option.name, option.transformer);
-      if ('onAutocomplete' in option)
+      if ('onAutocomplete' in option && option.onAutocomplete)
         this.autocompleteMap.set(option.name, option.onAutocomplete);
     });
     this.run = handlers.run;
@@ -418,6 +418,7 @@ export function populateBuilder<
           .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
           .setRequired(option.required ?? false);
         if (option.channelTypes) {
+          // @ts-expect-error I need to PR this to discord.js to allow forums as a channel type
           channel.addChannelTypes(...option.channelTypes);
         }
         builder.addChannelOption(channel);

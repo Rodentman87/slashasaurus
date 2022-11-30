@@ -1,9 +1,10 @@
 import type { LocalizationMap } from 'discord-api-types/v9';
+import { ApplicationCommandOptionType } from 'discord-api-types/v10';
 import {
-  ApplicationCommandOptionType,
+  AutocompleteInteraction,
+  CommandInteraction,
   ChannelType,
-} from 'discord-api-types/v10';
-import { AutocompleteInteraction, CommandInteraction } from 'discord.js';
+} from 'discord.js';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import { MaybePromise, OptionsMap } from './utilityTypes';
 
@@ -147,7 +148,8 @@ type ValidChannelTypes =
   | ChannelType.GuildNewsThread
   | ChannelType.GuildPublicThread
   | ChannelType.GuildPrivateThread
-  | ChannelType.GuildStageVoice;
+  | ChannelType.GuildStageVoice
+  | ChannelType.GuildForum;
 
 interface ChannelOptionsData
   extends BaseApplicationCommandOptionsData<OptionsMap['CHANNEL']> {

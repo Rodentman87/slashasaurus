@@ -9,6 +9,7 @@ import {
   ThreadChannel,
   VoiceChannel,
   ChannelType,
+  ForumChannel,
 } from 'discord.js';
 import { OptionsDataArray, ApplicationCommandOptionData } from './OptionTypes';
 
@@ -96,7 +97,7 @@ type ChannelsMap = {
   12: ThreadChannel;
   13: StageChannel;
   14: never; // Directory
-  15: never; // Forum
+  15: ForumChannel; // Forum
 };
 
 type MapChannelTypesToChannels<T extends ReadonlyArray<ChannelType>> = {

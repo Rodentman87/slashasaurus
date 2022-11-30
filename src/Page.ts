@@ -1,19 +1,24 @@
 import { EmbedBuilder } from '@discordjs/builders';
 import {
-  CommandInteraction,
-  ButtonInteraction,
-  InteractionWebhook,
-  Message,
-  MessageComponentInteraction,
-  MessageOptions,
-  MessagePayload,
-  SelectMenuInteraction,
-  TextBasedChannel,
-  WebhookEditMessageOptions,
   ActionRowBuilder,
   APIEmbed,
-  MessageActionRowComponentBuilder,
+  ButtonInteraction,
+  ChannelSelectMenuInteraction,
+  CommandInteraction,
   Embed,
+  ForumChannel,
+  InteractionWebhook,
+  MentionableSelectMenuInteraction,
+  Message,
+  MessageActionRowComponentBuilder,
+  MessageComponentInteraction,
+  MessageCreateOptions,
+  MessagePayload,
+  RoleSelectMenuInteraction,
+  SelectMenuInteraction,
+  TextBasedChannel,
+  UserSelectMenuInteraction,
+  WebhookEditMessageOptions,
 } from 'discord.js';
 import { PageActionRow, PageButton, PageSelect } from './PageComponents';
 import { SlashasaurusClient } from './SlashasaurusClient';
@@ -39,7 +44,8 @@ export type PageComponentArray = PageButtonRow | PageSelectRow;
 type PageComponentRows = (PageComponentArray | PageActionRow)[];
 
 export interface RenderedPage
-  extends Omit<MessageOptions, 'nonce' | 'components'> {
+  extends Omit<MessageCreateOptions, 'nonce' | 'components' | 'content'> {
+  content?: string | null;
   components?: PageComponentRows;
   embeds?: (APIEmbed | EmbedBuilder)[];
 }
@@ -57,6 +63,10 @@ export class PageInteractionReplyMessage {
 
   async edit(options: string | MessagePayload | WebhookEditMessageOptions) {
     await this.webhook.editMessage(this.id, options);
+  }
+
+  async delete() {
+    await this.webhook.deleteMessage(this.id);
   }
 }
 
@@ -127,6 +137,10 @@ export abstract class Page<
     return this.client.sendPageToChannel(this, channel);
   }
 
+  sendAsForumPost(channel: ForumChannel, postTitle: string) {
+    return this.client.sendPageToForumChannel(this, postTitle, channel);
+  }
+
   sendAsReply(
     interaction: MessageComponentInteraction | CommandInteraction,
     ephemeral = false
@@ -152,7 +166,16 @@ export abstract class Page<
    */
   abstract serializeState(): string;
 
-  handleId(id: string, interaction: ButtonInteraction | SelectMenuInteraction) {
+  handleId(
+    id: string,
+    interaction:
+      | ButtonInteraction
+      | SelectMenuInteraction
+      | UserSelectMenuInteraction
+      | RoleSelectMenuInteraction
+      | ChannelSelectMenuInteraction
+      | MentionableSelectMenuInteraction
+  ) {
     const handler = this.handlers.get(id);
     if (handler) {
       handler(interaction);

@@ -1,9 +1,18 @@
 import {
+  ContextMenuCommandBuilder,
+  SlashCommandBuilder,
+  SlashCommandSubcommandBuilder,
+  SlashCommandSubcommandGroupBuilder,
+} from '@discordjs/builders';
+import { REST } from '@discordjs/rest';
+import { ApplicationCommandType, Routes } from 'discord-api-types/v10';
+import {
   AutocompleteInteraction,
   Awaitable,
   BaseGuildTextChannel,
   BitFieldResolvable,
   ButtonInteraction,
+  ChannelSelectMenuInteraction,
   ChatInputCommandInteraction,
   Client,
   ClientEvents,
@@ -12,18 +21,21 @@ import {
   ComponentType,
   ContextMenuCommandInteraction,
   DMChannel,
+  ForumChannel,
   Interaction,
   InteractionType,
   InteractionWebhook,
+  MentionableSelectMenuInteraction,
   Message,
   MessageComponentInteraction,
-  MessageFlagsString,
   ModalSubmitInteraction,
+  RoleSelectMenuInteraction,
   SelectMenuInteraction,
   TextBasedChannel,
+  UserSelectMenuInteraction,
 } from 'discord.js';
-import { join } from 'path';
 import { readdir, stat } from 'fs/promises';
+import { join } from 'path';
 import {
   ContextMenuHandlerType,
   isMessageCommand,
@@ -31,7 +43,7 @@ import {
   MessageCommand,
   UserCommand,
 } from './ContextMenuBase';
-import { Pipeline, Middleware } from './MiddlewarePipeline';
+import { Middleware, Pipeline } from './MiddlewarePipeline';
 import {
   compareMessages,
   DEFAULT_PAGE_ID,
@@ -41,25 +53,17 @@ import {
   pageComponentRowsToComponents,
   PageInteractionReplyMessage,
 } from './Page';
-import {
-  SlashCommand,
-  CommandRunFunction,
-  AutocompleteFunction,
-  isChatCommand,
-  populateBuilder,
-  CommandGroupMetadata,
-  isCommandGroupMetadata,
-} from './SlashCommandBase';
 import { PingableTimedCache } from './PingableTimedCache';
-import { TemplateModal } from './TemplateModal';
 import {
-  ContextMenuCommandBuilder,
-  SlashCommandBuilder,
-  SlashCommandSubcommandBuilder,
-  SlashCommandSubcommandGroupBuilder,
-} from '@discordjs/builders';
-import { ApplicationCommandType, Routes } from 'discord-api-types/v10';
-import { REST } from '@discordjs/rest';
+  AutocompleteFunction,
+  CommandGroupMetadata,
+  CommandRunFunction,
+  isChatCommand,
+  isCommandGroupMetadata,
+  populateBuilder,
+  SlashCommand,
+} from './SlashCommandBase';
+import { TemplateModal } from './TemplateModal';
 import { MaybePromise } from './utilityTypes';
 
 interface SlashasaurusClientEvents extends ClientEvents {
@@ -69,6 +73,10 @@ interface SlashasaurusClientEvents extends ClientEvents {
   contextMenuRun: [interaction: ContextMenuCommandInteraction];
   autocomplete: [interaction: AutocompleteInteraction];
   modalSubmit: [interaction: ModalSubmitInteraction];
+  userSelectChanged: [interaction: UserSelectMenuInteraction];
+  roleSelectChanged: [interaction: RoleSelectMenuInteraction];
+  channelSelectChanged: [interaction: ChannelSelectMenuInteraction];
+  mentionableSelectChanged: [interaction: MentionableSelectMenuInteraction];
 }
 
 const JSFileRegex = /(?<!\.d)(\.js|\.ts)x?$/;
@@ -529,6 +537,7 @@ export class SlashasaurusClient extends Client<true> {
             );
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(
+            // @ts-expect-error I will fix this later
             populateBuilder(command.commandInfo, new SlashCommandBuilder())
           );
           this.logger?.debug(`Loaded chat command ${command.commandInfo.name}`);
@@ -611,8 +620,10 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(`Duplicate command name ${mapName}`);
           this.commandMap.set(mapName, command);
           commandData.push(
+            // @ts-expect-error I will fix this later
             populateBuilder(
               command.commandInfo,
+              // @ts-expect-error I will fix this later
               new SlashCommandSubcommandBuilder()
             )
           );
@@ -716,8 +727,10 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(`Duplicate command name ${mapName}`);
           this.commandMap.set(mapName, command);
           commandData.push(
+            // @ts-expect-error I will fix this later
             populateBuilder(
               command.commandInfo,
+              // @ts-expect-error I will fix this later
               new SlashCommandSubcommandBuilder()
             )
           );
@@ -863,11 +876,33 @@ export class SlashasaurusClient extends Client<true> {
             this.handlePageButton(interaction);
           }
           this.emit('buttonPressed', interaction);
-        } else if (interaction.componentType === ComponentType.SelectMenu) {
+        } else if (interaction.componentType === ComponentType.StringSelect) {
           if (interaction.customId.startsWith('~')) {
             this.handlePageSelect(interaction);
           }
           this.emit('selectChanged', interaction);
+        } else if (interaction.componentType === ComponentType.UserSelect) {
+          if (interaction.customId.startsWith('~')) {
+            this.handlePageSelect(interaction);
+          }
+          this.emit('userSelectChanged', interaction);
+        } else if (interaction.componentType === ComponentType.ChannelSelect) {
+          if (interaction.customId.startsWith('~')) {
+            this.handlePageSelect(interaction);
+          }
+          this.emit('channelSelectChanged', interaction);
+        } else if (interaction.componentType === ComponentType.RoleSelect) {
+          if (interaction.customId.startsWith('~')) {
+            this.handlePageSelect(interaction);
+          }
+          this.emit('roleSelectChanged', interaction);
+        } else if (
+          interaction.componentType === ComponentType.MentionableSelect
+        ) {
+          if (interaction.customId.startsWith('~')) {
+            this.handlePageSelect(interaction);
+          }
+          this.emit('mentionableSelectChanged', interaction);
         }
         break;
       case InteractionType.ModalSubmit:
@@ -993,16 +1028,13 @@ export class SlashasaurusClient extends Client<true> {
       if (!compareMessages(interaction.message, renderedPage)) {
         await interaction.update({
           content: null,
-          embeds: null,
+          embeds: [],
           ...renderedPage,
           components: renderedPage.components
             ? pageComponentRowsToComponents(renderedPage.components, page)
             : [],
           fetchReply: true,
-          flags: renderedPage.flags as unknown as BitFieldResolvable<
-            MessageFlagsString,
-            number
-          >,
+          flags: renderedPage.flags as any,
         });
         interaction.followUp({
           content:
@@ -1032,7 +1064,14 @@ export class SlashasaurusClient extends Client<true> {
     page.handleId(interaction.customId.split(';')[1], interaction);
   }
 
-  private async handlePageSelect(interaction: SelectMenuInteraction) {
+  private async handlePageSelect(
+    interaction:
+      | SelectMenuInteraction
+      | UserSelectMenuInteraction
+      | RoleSelectMenuInteraction
+      | ChannelSelectMenuInteraction
+      | MentionableSelectMenuInteraction
+  ) {
     let page = this.activePages.get(interaction.message.id);
     if (!page) {
       page = await this.getPageFromMessage(interaction.message.id, interaction);
@@ -1048,10 +1087,7 @@ export class SlashasaurusClient extends Client<true> {
             ? pageComponentRowsToComponents(renderedPage.components, page)
             : [],
           fetchReply: true,
-          flags: renderedPage.flags as unknown as BitFieldResolvable<
-            MessageFlagsString,
-            number
-          >,
+          flags: renderedPage.flags as any,
         });
         interaction.followUp({
           content:
@@ -1101,6 +1137,7 @@ export class SlashasaurusClient extends Client<true> {
       // We need to save the interaction instead since it doesn't return a message we can edit
       const message = await interaction.reply({
         ...messageOptions,
+        content: messageOptions.content ?? undefined,
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : [],
@@ -1126,6 +1163,7 @@ export class SlashasaurusClient extends Client<true> {
     } else {
       const message = await interaction.reply({
         ...messageOptions,
+        content: messageOptions.content ?? undefined,
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : [],
@@ -1155,6 +1193,7 @@ export class SlashasaurusClient extends Client<true> {
     const messageOptions = await page.render();
     const message = await channel.send({
       ...messageOptions,
+      content: messageOptions.content ?? undefined,
       components: messageOptions.components
         ? pageComponentRowsToComponents(messageOptions.components, page)
         : [],
@@ -1169,6 +1208,33 @@ export class SlashasaurusClient extends Client<true> {
     );
     this.activePages.set(message.id, page);
     page.pageDidSend?.();
+  }
+
+  async sendPageToForumChannel<P, S>(
+    page: Page<P, S>,
+    postTitle: string,
+    channel: ForumChannel
+  ) {
+    const messageOptions = await page.render();
+    const thread = await channel.threads.create({
+      name: postTitle,
+      message: {
+        ...messageOptions,
+        content: messageOptions.content ?? undefined,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : [],
+      },
+    });
+    page.message = thread.lastMessage!;
+    const state = await page.serializeState();
+    this.storePageState(
+      thread.lastMessage!.id,
+      page.constructor.pageId,
+      state,
+      messageToMessageData(page.message)
+    );
+    this.activePages.set(thread.lastMessage!.id, page);
   }
 
   async updatePage<P, S>(page: Page<P, S>, newState: S) {
@@ -1187,10 +1253,7 @@ export class SlashasaurusClient extends Client<true> {
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : [],
-        flags: messageOptions.flags as unknown as BitFieldResolvable<
-          MessageFlagsString,
-          number
-        >,
+        flags: messageOptions.flags as any,
       });
     } else {
       await message.edit({
@@ -1198,10 +1261,7 @@ export class SlashasaurusClient extends Client<true> {
         components: messageOptions.components
           ? pageComponentRowsToComponents(messageOptions.components, page)
           : [],
-        flags: messageOptions.flags as unknown as BitFieldResolvable<
-          MessageFlagsString,
-          number
-        >,
+        flags: messageOptions.flags as any,
       });
     }
     const state = await page.serializeState();

@@ -9,6 +9,20 @@ import {
   SelectMenuInteraction,
   parseEmoji,
   SelectMenuOptionBuilder,
+  UserSelectMenuBuilder,
+  UserSelectMenuComponentData,
+  ChannelSelectMenuBuilder,
+  MentionableSelectMenuBuilder,
+  RoleSelectMenuBuilder,
+  RoleSelectMenuComponentData,
+  UserSelectMenuInteraction,
+  RoleSelectMenuInteraction,
+  ChannelSelectMenuComponentData,
+  ChannelSelectMenuInteraction,
+  MentionableSelectMenuComponentData,
+  MentionableSelectMenuInteraction,
+  ChannelType,
+  APISelectMenuOption,
 } from 'discord.js';
 
 type NonLinkStyles =
@@ -32,7 +46,15 @@ type PotentialDjsComponent = NonNullable<
 >[number]['components'][number];
 
 interface ExportableToDjsComponent {
-  toDjsComponent(id: string): ButtonBuilder | SelectMenuBuilder;
+  toDjsComponent(
+    id: string
+  ):
+    | ButtonBuilder
+    | SelectMenuBuilder
+    | UserSelectMenuBuilder
+    | RoleSelectMenuBuilder
+    | ChannelSelectMenuBuilder
+    | MentionableSelectMenuBuilder;
 }
 
 export function createInteractable<P>(
@@ -90,7 +112,7 @@ export type PageLinkButtonOptions = {
 } & PageButtonLabelOptions;
 
 export class PageInteractableButton implements ExportableToDjsComponent {
-  type: 'BUTTON' = 'BUTTON';
+  type: ComponentType.Button = ComponentType.Button;
   handler: (interaction: ButtonInteraction) => void;
   style: NonLinkStyles = ButtonStyle.Secondary;
   disabled = false;
@@ -132,7 +154,7 @@ export class PageInteractableButton implements ExportableToDjsComponent {
 }
 
 export class PageLinkButton implements ExportableToDjsComponent {
-  type: 'BUTTON' = 'BUTTON';
+  type: ComponentType.Button = ComponentType.Button;
   url: string;
   disabled = false;
   label?: string;
@@ -176,17 +198,20 @@ export type PageButton = PageInteractableButton | PageLinkButton;
 
 export interface PageSelectOptions {
   handler: (interaction: SelectMenuInteraction) => void;
-  options: SelectMenuOptionBuilder[];
+  options: APISelectMenuOption[] | SelectMenuOptionBuilder[];
   placeholder?: string;
   minValues?: number;
   maxValues?: number;
   disabled?: boolean;
 }
 
+/**
+ * @deprecated Use PageStringSelect instead
+ */
 export class PageSelect implements ExportableToDjsComponent {
-  type: 'SELECT_MENU' = 'SELECT_MENU';
+  type: ComponentType.StringSelect = ComponentType.StringSelect;
   handler: (interaction: SelectMenuInteraction) => void;
-  options: SelectMenuOptionBuilder[];
+  options: SelectMenuOptionBuilder[] = [];
   placeholder?: string;
   minValues = 1;
   maxValues = 1;
@@ -194,7 +219,14 @@ export class PageSelect implements ExportableToDjsComponent {
 
   constructor(options: PageSelectOptions) {
     this.handler = options.handler;
-    this.options = options.options;
+    // Convert the options to SelectMenuOptionBuilders so that we don't have to deal with emoji weirdness
+    for (const option of options.options) {
+      if (option instanceof SelectMenuOptionBuilder) {
+        this.options.push(option);
+      } else {
+        this.options.push(new SelectMenuOptionBuilder(option));
+      }
+    }
     if (options.placeholder) this.placeholder = options.placeholder;
     if (options.minValues) this.minValues = options.minValues;
     if (options.maxValues) this.maxValues = options.maxValues;
@@ -214,7 +246,7 @@ export class PageSelect implements ExportableToDjsComponent {
   }
 
   compareToComponent(component: PotentialDjsComponent) {
-    if (!(component.type === ComponentType.SelectMenu)) return false;
+    if (!(component.type === ComponentType.StringSelect)) return false;
     if (
       this.disabled !== component.disabled ||
       this.maxValues !== component.maxValues ||
@@ -243,6 +275,212 @@ export class PageSelect implements ExportableToDjsComponent {
       }
       return true;
     });
+  }
+}
+
+export class PageStringSelect extends PageSelect {}
+
+export interface PageUserSelectOptions {
+  handler: (interaction: UserSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues?: number;
+  maxValues?: number;
+  disabled?: boolean;
+}
+
+export class PageUserSelect implements ExportableToDjsComponent {
+  type: ComponentType.UserSelect = ComponentType.UserSelect;
+  handler: (interaction: UserSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues = 1;
+  maxValues = 1;
+  disabled = false;
+
+  constructor(options: PageUserSelectOptions) {
+    this.handler = options.handler;
+    if (options.placeholder) this.placeholder = options.placeholder;
+    if (options.minValues) this.minValues = options.minValues;
+    if (options.maxValues) this.maxValues = options.maxValues;
+    if (options.disabled) this.disabled = options.disabled;
+  }
+
+  toDjsComponent(id: string) {
+    const options: UserSelectMenuComponentData = {
+      type: ComponentType.UserSelect,
+      minValues: this.minValues,
+      maxValues: this.maxValues,
+      disabled: this.disabled,
+      customId: id,
+    };
+    if (this.placeholder) options.placeholder = this.placeholder;
+    const builder = new UserSelectMenuBuilder(options);
+    return builder;
+  }
+
+  compareToComponent(component: PotentialDjsComponent) {
+    if (!(component.type === ComponentType.UserSelect)) return false;
+    if (
+      this.disabled !== component.disabled ||
+      this.maxValues !== component.maxValues ||
+      this.minValues !== component.minValues ||
+      this.placeholder !== component.placeholder
+    )
+      return false;
+    return true;
+  }
+}
+
+export interface PageRoleSelectOptions {
+  handler: (interaction: RoleSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues?: number;
+  maxValues?: number;
+  disabled?: boolean;
+}
+
+export class PageRoleSelect implements ExportableToDjsComponent {
+  type: ComponentType.RoleSelect = ComponentType.RoleSelect;
+  handler: (interaction: RoleSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues = 1;
+  maxValues = 1;
+  disabled = false;
+
+  constructor(options: PageRoleSelectOptions) {
+    this.handler = options.handler;
+    if (options.placeholder) this.placeholder = options.placeholder;
+    if (options.minValues) this.minValues = options.minValues;
+    if (options.maxValues) this.maxValues = options.maxValues;
+    if (options.disabled) this.disabled = options.disabled;
+  }
+
+  toDjsComponent(id: string) {
+    const options: RoleSelectMenuComponentData = {
+      type: ComponentType.RoleSelect,
+      minValues: this.minValues,
+      maxValues: this.maxValues,
+      disabled: this.disabled,
+      customId: id,
+    };
+    if (this.placeholder) options.placeholder = this.placeholder;
+    const builder = new RoleSelectMenuBuilder(options);
+    return builder;
+  }
+
+  compareToComponent(component: PotentialDjsComponent) {
+    if (!(component.type === ComponentType.StringSelect)) return false;
+    if (
+      this.disabled !== component.disabled ||
+      this.maxValues !== component.maxValues ||
+      this.minValues !== component.minValues ||
+      this.placeholder !== component.placeholder
+    )
+      return false;
+    return true;
+  }
+}
+
+export interface PageChannelSelectOptions {
+  handler: (interaction: ChannelSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues?: number;
+  maxValues?: number;
+  disabled?: boolean;
+  channelTypes?: ChannelType[];
+}
+
+export class PageChannelSelect implements ExportableToDjsComponent {
+  type: ComponentType.ChannelSelect = ComponentType.ChannelSelect;
+  handler: (interaction: ChannelSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues = 1;
+  maxValues = 1;
+  disabled = false;
+  channelTypes?: ChannelType[];
+
+  constructor(options: PageChannelSelectOptions) {
+    this.handler = options.handler;
+    if (options.placeholder) this.placeholder = options.placeholder;
+    if (options.minValues) this.minValues = options.minValues;
+    if (options.maxValues) this.maxValues = options.maxValues;
+    if (options.disabled) this.disabled = options.disabled;
+    if (options.channelTypes) this.channelTypes = options.channelTypes;
+  }
+
+  toDjsComponent(id: string) {
+    const options: ChannelSelectMenuComponentData = {
+      type: ComponentType.ChannelSelect,
+      minValues: this.minValues,
+      maxValues: this.maxValues,
+      disabled: this.disabled,
+      customId: id,
+    };
+    if (this.channelTypes) options.channelTypes = this.channelTypes;
+    if (this.placeholder) options.placeholder = this.placeholder;
+    const builder = new ChannelSelectMenuBuilder(options);
+    return builder;
+  }
+
+  compareToComponent(component: PotentialDjsComponent) {
+    if (!(component.type === ComponentType.ChannelSelect)) return false;
+    if (
+      this.disabled !== component.disabled ||
+      this.maxValues !== component.maxValues ||
+      this.minValues !== component.minValues ||
+      this.placeholder !== component.placeholder
+    )
+      return false;
+    return true;
+  }
+}
+
+export interface PageMentionableSelectOptions {
+  handler: (interaction: MentionableSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues?: number;
+  maxValues?: number;
+  disabled?: boolean;
+}
+
+export class PageMentionableSelect implements ExportableToDjsComponent {
+  type: ComponentType.MentionableSelect = ComponentType.MentionableSelect;
+  handler: (interaction: MentionableSelectMenuInteraction) => void;
+  placeholder?: string;
+  minValues = 1;
+  maxValues = 1;
+  disabled = false;
+
+  constructor(options: PageMentionableSelectOptions) {
+    this.handler = options.handler;
+    if (options.placeholder) this.placeholder = options.placeholder;
+    if (options.minValues) this.minValues = options.minValues;
+    if (options.maxValues) this.maxValues = options.maxValues;
+    if (options.disabled) this.disabled = options.disabled;
+  }
+
+  toDjsComponent(id: string) {
+    const options: MentionableSelectMenuComponentData = {
+      type: ComponentType.MentionableSelect,
+      minValues: this.minValues,
+      maxValues: this.maxValues,
+      disabled: this.disabled,
+      customId: id,
+    };
+    if (this.placeholder) options.placeholder = this.placeholder;
+    const builder = new MentionableSelectMenuBuilder(options);
+    return builder;
+  }
+
+  compareToComponent(component: PotentialDjsComponent) {
+    if (!(component.type === ComponentType.MentionableSelect)) return false;
+    if (
+      this.disabled !== component.disabled ||
+      this.maxValues !== component.maxValues ||
+      this.minValues !== component.minValues ||
+      this.placeholder !== component.placeholder
+    )
+      return false;
+    return true;
   }
 }
 
