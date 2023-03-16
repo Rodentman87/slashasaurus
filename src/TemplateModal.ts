@@ -1,11 +1,11 @@
 import { TextInputBuilder } from '@discordjs/builders';
 import {
-  ActionRowBuilder,
-  ModalBuilder,
-  ModalSubmitInteraction,
-  TextInputStyle,
-  ModalActionRowComponentBuilder,
-  ComponentType,
+	ActionRowBuilder,
+	ComponentType,
+	ModalActionRowComponentBuilder,
+	ModalBuilder,
+	ModalSubmitInteraction,
+	TextInputStyle,
 } from 'discord.js';
 
 type ExtractFromDelimiters<
@@ -90,7 +90,7 @@ function replaceVariables(target: string, variables: any) {
 }
 
 export class TemplateModal<
-  T extends ReadonlyArray<ReadonlyTextInputProps>,
+  const T extends ReadonlyArray<ReadonlyTextInputProps>,
   U extends string
 > {
   public readonly title: string;

@@ -96,7 +96,7 @@ export function isChatCommand(command: any): command is SlashCommand<any> {
   return command instanceof SlashCommand;
 }
 
-export class SlashCommand<T extends OptionsDataArray> {
+export class SlashCommand<const T extends OptionsDataArray> {
   commandInfo: ChatCommandOptions<T> & { type: string };
   validatorsMap: Map<
     string,
