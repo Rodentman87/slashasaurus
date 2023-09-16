@@ -2,7 +2,6 @@
 import {
   AutocompleteInteraction,
   ChatInputCommandInteraction,
-  CommandInteraction,
   InteractionType,
   SlashCommandAttachmentOption,
   SlashCommandBooleanOption,
@@ -67,7 +66,7 @@ export function isCommandGroupMetadata(arg: any): arg is CommandGroupMetadata {
 }
 
 export type CommandRunFunction<T extends OptionsDataArray> = (
-  interaction: CommandInteraction,
+  interaction: ChatInputCommandInteraction,
   client: SlashasaurusClient,
   options: CommandOptionsObject<T>
 ) => void;
@@ -101,7 +100,7 @@ export class SlashCommand<const T extends OptionsDataArray> {
   validatorsMap: Map<
     string,
     (
-      interaction: CommandInteraction,
+      interaction: ChatInputCommandInteraction,
       value: any
     ) => MaybePromise<boolean | string>
   > = new Map();
@@ -138,7 +137,7 @@ export class SlashCommand<const T extends OptionsDataArray> {
   }
 
   run(
-    interaction: CommandInteraction,
+    interaction: ChatInputCommandInteraction,
     _client: SlashasaurusClient,
     _options: CommandOptionsObject<T>
   ) {
@@ -210,7 +209,7 @@ export class SlashCommand<const T extends OptionsDataArray> {
       let isValid = true;
       if (
         this.validatorsMap.has(option.name) &&
-        interaction instanceof CommandInteraction
+        interaction instanceof ChatInputCommandInteraction
       ) {
         // Run the validator
         const validator = this.validatorsMap.get(option.name);
