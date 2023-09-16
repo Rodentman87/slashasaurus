@@ -18,7 +18,7 @@ import {
   SelectMenuInteraction,
   TextBasedChannel,
   UserSelectMenuInteraction,
-  WebhookEditMessageOptions,
+  WebhookMessageEditOptions,
 } from 'discord.js';
 import { PageActionRow, PageButton, PageSelect } from './PageComponents';
 import { SlashasaurusClient } from './SlashasaurusClient';
@@ -61,7 +61,7 @@ export const DEFAULT_PAGE_ID = 'DEFAULT_PAGE_ID';
 export class PageInteractionReplyMessage {
   constructor(public webhook: InteractionWebhook, public id: string) {}
 
-  async edit(options: string | MessagePayload | WebhookEditMessageOptions) {
+  async edit(options: string | MessagePayload | WebhookMessageEditOptions) {
     await this.webhook.editMessage(this.id, options);
   }
 
