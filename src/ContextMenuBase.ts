@@ -1,5 +1,6 @@
 import type { LocalizationMap } from 'discord-api-types/v10';
 import { SlashasaurusClient } from './SlashasaurusClient';
+import { GetConnectorType } from './utilityTypes';
 
 type ContextCommandOptions<T extends 'MESSAGE' | 'USER'> = {
   name: string;
@@ -12,11 +13,11 @@ type ContextCommandOptions<T extends 'MESSAGE' | 'USER'> = {
 export type ContextMenuHandlerType<T extends 'MESSAGE' | 'USER'> =
   T extends 'MESSAGE'
     ? (
-        interaction: ConnectorTypes['MessageContextMenuCommandInteraction'],
+        interaction: GetConnectorType<'MessageContextMenuCommandInteraction'>,
         client: SlashasaurusClient
       ) => void
     : (
-        interaction: ConnectorTypes['UserContextMenuCommandInteraction'],
+        interaction: GetConnectorType<'UserContextMenuCommandInteraction'>,
         client: SlashasaurusClient
       ) => void;
 

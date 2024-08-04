@@ -2,7 +2,7 @@ import { ApplicationCommandOptionType } from 'discord-api-types/v10';
 import type { LocalizationMap } from 'discord-api-types/v9';
 import { ChannelType, CommandInteraction } from 'discord.js';
 import { SlashasaurusClient } from './SlashasaurusClient';
-import { MaybePromise, OptionsMap } from './utilityTypes';
+import { GetConnectorType, MaybePromise, OptionsMap } from './utilityTypes';
 
 interface BaseApplicationCommandOptionsData<T> {
   /**
@@ -65,7 +65,7 @@ interface StringAutocompleteOptionsData
   readonly type: ApplicationCommandOptionType.String;
   readonly autocomplete: true;
   readonly onAutocomplete?: (
-    interaction: ConnectorTypes['AutocompleteInteraction'],
+    interaction: GetConnectorType<'AutocompleteInteraction'>,
     value: string,
     client: SlashasaurusClient
   ) => void;
@@ -96,7 +96,7 @@ interface IntegerAutocompleteOptionsData
   readonly type: ApplicationCommandOptionType.Integer;
   readonly autocomplete: true;
   readonly onAutocomplete?: (
-    interaction: ConnectorTypes['AutocompleteInteraction'],
+    interaction: GetConnectorType<'AutocompleteInteraction'>,
     value: number,
     client: SlashasaurusClient
   ) => void;
@@ -164,7 +164,7 @@ interface NumberAutocompleteOptionsData
   readonly type: ApplicationCommandOptionType.Number;
   readonly autocomplete: true;
   readonly onAutocomplete?: (
-    interaction: ConnectorTypes['AutocompleteInteraction'],
+    interaction: GetConnectorType<'AutocompleteInteraction'>,
     value: number,
     client: SlashasaurusClient
   ) => void;

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
 	ApplicationCommandOptionType,
+	InteractionType,
 	LocalizationMap,
 } from 'discord-api-types/v10';
 import {
@@ -23,6 +24,7 @@ import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import {
 	CommandOptionsObject,
+	GetConnectorType,
 	MapOptionsToAutocompleteNames,
 	MaybePromise,
 } from './utilityTypes';
@@ -65,13 +67,13 @@ export function isCommandGroupMetadata(arg: any): arg is CommandGroupMetadata {
 }
 
 export type CommandRunFunction<T extends OptionsDataArray> = (
-  interaction: ConnectorTypes['ChatInputCommandInteraction'],
+  interaction: GetConnectorType<'ChatInputCommandInteraction'>,
   client: SlashasaurusClient,
   options: CommandOptionsObject<T>
 ) => void;
 
 export type AutocompleteFunction<T extends OptionsDataArray> = (
-  interaction: ConnectorTypes['AutocompleteInteraction'],
+  interaction: GetConnectorType<'AutocompleteInteraction'>,
   focusedName: MapOptionsToAutocompleteNames<T>,
   focusedValue: string | number,
   client: SlashasaurusClient,
@@ -107,7 +109,7 @@ export class SlashCommand<const T extends OptionsDataArray> {
   autocompleteMap: Map<
     string,
     (
-      interaction: ConnectorTypes['AutocompleteInteraction'],
+      interaction: GetConnectorType<'AutocompleteInteraction'>,
       value: any,
       client: SlashasaurusClient,
     ) => MaybePromise<any>
@@ -136,7 +138,7 @@ export class SlashCommand<const T extends OptionsDataArray> {
   }
 
   run(
-    _interaction: ConnectorTypes['ChatInputCommandInteraction'],
+    _interaction: GetConnectorType<'ChatInputCommandInteraction'>,
     _client: SlashasaurusClient,
     _options: CommandOptionsObject<T>
   ) {
@@ -144,7 +146,7 @@ export class SlashCommand<const T extends OptionsDataArray> {
   }
 
   autocomplete(
-    _interaction: ConnectorTypes['AutocompleteInteraction'],
+    _interaction: GetConnectorType<'AutocompleteInteraction'>,
     _focusedName: MapOptionsToAutocompleteNames<T>,
     _focusedValue: string | number,
     _client: SlashasaurusClient,
@@ -154,17 +156,17 @@ export class SlashCommand<const T extends OptionsDataArray> {
   }
 
   async validateAndTransformOptions(
-    interaction: ConnectorTypes['ChatInputCommandInteraction'],
+    interaction: GetConnectorType<'ChatInputCommandInteraction'>,
 		connector: Connector,
   ): Promise<CommandOptionsObject<T> | string[]>;
   async validateAndTransformOptions(
-    interaction: ConnectorTypes['AutocompleteInteraction'],
+    interaction: GetConnectorType<'AutocompleteInteraction'>,
 		connector: Connector,
     skipRequiredCheck: boolean,
     skipValidationAndTransformation: boolean
   ): Promise<CommandOptionsObject<T>>;
   async validateAndTransformOptions(
-    interaction: ConnectorTypes['ChatInputCommandInteraction'] | ConnectorTypes['AutocompleteInteraction'],
+    interaction: GetConnectorType<'ChatInputCommandInteraction'> | GetConnectorType<'AutocompleteInteraction'>,
 		connector: Connector,
     skipRequiredCheck = false,
     skipValidationAndTransformation = false
@@ -173,7 +175,12 @@ export class SlashCommand<const T extends OptionsDataArray> {
     const values: Record<string, any> = {};
     for (const option of this.commandInfo.options) {
       // Get the option data
-      let value = connector.getOptionValue(
+      let value = interaction.type === InteractionType.ApplicationCommand ? connector.getOptionValue(
+				interaction,
+				option.type,
+				option.name,
+				skipRequiredCheck ? false : option.required ?? false
+			) : connector.getAutocompleteOptionValue(
 				interaction,
 				option.type,
 				option.name,

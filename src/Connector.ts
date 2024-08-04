@@ -2,45 +2,50 @@ import {
   APIMessage,
   ApplicationCommandOptionType,
 } from 'discord-api-types/v10';
-import { PageInteractionReplyMessage } from './Page';
-import { MessageData } from './SlashasaurusClient';
+import { GetConnectorType } from './utilityTypes';
 
 export interface Connector {
   getCommandGroup: (
-    interaction: ConnectorTypes['ChatInputCommandInteraction']
+    interaction: GetConnectorType<'ChatInputCommandInteraction'>
   ) => string | undefined;
   getCommandSubcommand: (
-    interaction: ConnectorTypes['ChatInputCommandInteraction']
+    interaction: GetConnectorType<'ChatInputCommandInteraction'>
   ) => string | undefined;
 
-  getGuildMessage: (data: MessageData) => Promise<ConnectorTypes['Message']>;
-  getDMMessage: (
-    data: Omit<MessageData, 'guildId'>
-  ) => Promise<ConnectorTypes['Message']>;
+  // getGuildMessage: (data: MessageData) => Promise<GetConnectorType<'Message'>>;
+  // getDMMessage: (
+  //   data: Omit<MessageData, 'guildId'>
+  // ) => Promise<GetConnectorType<'Message'>>;
 
   getOptionValue: (
-    interaction:
-      | ConnectorTypes['ChatInputCommandInteraction']
-      | ConnectorTypes['AutocompleteInteraction'],
+    interaction: GetConnectorType<'ChatInputCommandInteraction'>,
+    type: ApplicationCommandOptionType,
+    name: string,
+    required: boolean
+  ) => any;
+  getAutocompleteOptionValue: (
+    interaction: GetConnectorType<'AutocompleteInteraction'>,
     type: ApplicationCommandOptionType,
     name: string,
     required: boolean
   ) => any;
 
-  createInteractionWebhook: (
-    client: ConnectorTypes['Client'],
-    appId: string,
-    token: string
-  ) => ConnectorTypes['InteractionWebhook'];
+  // createInteractionWebhook: (
+  //   client: GetConnectorType<'Client'>,
+  //   appId: string,
+  //   token: string
+  // ) => GetConnectorType<'InteractionWebhook'>;
 
-  getApplicationId: (client: ConnectorTypes['Client']) => string;
+  getApplicationId: (client: GetConnectorType<'Client'>) => string;
 
-  messageToMessageData: (
-    message: ConnectorTypes['Message'] | PageInteractionReplyMessage
-  ) => string;
+  // messageToMessageData: (
+  //   message: GetConnectorType<'Message'> | PageInteractionReplyMessage
+  // ) => string;
 
   replyToInteraction: (
-    interaction: ConnectorTypes['Interaction'],
+    interaction:
+      | GetConnectorType<'ChatInputCommandInteraction'>
+      | GetConnectorType<'MessageComponentInteraction'>,
     data: Partial<APIMessage>
   ) => Promise<void>;
 }

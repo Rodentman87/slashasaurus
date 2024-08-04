@@ -23,6 +23,7 @@ import {
   UserSelectMenuComponentData,
   UserSelectMenuInteraction,
 } from 'discord.js';
+import { GetConnectorType } from './utilityTypes';
 
 type NonLinkStyles =
   | ButtonStyle.Danger
@@ -41,7 +42,7 @@ type PageButtonLabelOptions =
     };
 
 type PotentialDjsComponent = NonNullable<
-  ConnectorTypes['MessageComponentInteraction']['message']['components']
+  GetConnectorType<'MessageComponentInteraction'>['message']['components']
 >[number]['components'][number];
 
 interface ExportableToDjsComponent {

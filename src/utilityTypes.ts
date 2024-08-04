@@ -1,17 +1,35 @@
+import {
+  APIApplicationCommandAutocompleteInteraction,
+  APIApplicationCommandInteraction,
+  APIChatInputApplicationCommandInteraction,
+  APIContextMenuInteraction,
+  APIInteraction,
+  APIMessage,
+  APIMessageApplicationCommandInteraction,
+  APIMessageChannelSelectInteractionData,
+  APIMessageComponentButtonInteraction,
+  APIMessageComponentInteraction,
+  APIMessageComponentSelectMenuInteraction,
+  APIMessageMentionableSelectInteractionData,
+  APIMessageRoleSelectInteractionData,
+  APIMessageUserSelectInteractionData,
+  APIModalSubmitInteraction,
+  APIUserApplicationCommandInteraction,
+} from 'discord-api-types/v10';
 import { APIInteractionDataResolvedChannel } from 'discord-api-types/v9';
 import {
   ApplicationCommandOptionChoiceData,
   CategoryChannel,
+  ChannelType,
   CommandInteractionOptionResolver,
+  ForumChannel,
   NewsChannel,
   StageChannel,
   TextChannel,
   ThreadChannel,
   VoiceChannel,
-  ChannelType,
-  ForumChannel,
 } from 'discord.js';
-import { OptionsDataArray, ApplicationCommandOptionData } from './OptionTypes';
+import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
 
 export type ExtractArrayType<T> = ((a: T) => never) extends (
   a: Array<infer H>
@@ -38,6 +56,33 @@ type MapChoicesToValues<
     ? T[K]['value']
     : never;
 }[number];
+
+export type GetConnectorType<T extends string> = T extends keyof ConnectorTypes
+  ? ConnectorTypes[T]
+  : T extends keyof DefaultConnectorTypes
+  ? DefaultConnectorTypes[T]
+  : never;
+
+interface DefaultConnectorTypes {
+  AutocompleteInteraction: APIApplicationCommandAutocompleteInteraction;
+  ButtonInteraction: APIMessageComponentButtonInteraction;
+  ChatInputCommandInteraction: APIChatInputApplicationCommandInteraction;
+  Client: unknown;
+  CommandInteraction: APIApplicationCommandInteraction;
+  ContextMenuCommandInteraction: APIContextMenuInteraction;
+  MessageContextMenuCommandInteraction: APIMessageApplicationCommandInteraction;
+  UserContextMenuCommandInteraction: APIUserApplicationCommandInteraction;
+  MessageComponentInteraction: APIMessageComponentInteraction;
+  ModalSubmitInteraction: APIModalSubmitInteraction;
+  SelectMenuInteraction: APIMessageComponentSelectMenuInteraction;
+  UserSelectMenuInteraction: APIMessageUserSelectInteractionData;
+  RoleSelectMenuInteraction: APIMessageRoleSelectInteractionData;
+  ChannelSelectMenuInteraction: APIMessageChannelSelectInteractionData;
+  MentionableSelectMenuInteraction: APIMessageMentionableSelectInteractionData;
+  Message: APIMessage;
+  InteractionWebhook: unknown;
+  Interaction: APIInteraction;
+}
 
 type HasChoices = {
   choices: readonly [

@@ -3,19 +3,17 @@ import {
   ActionRowBuilder,
   APIEmbed,
   CommandInteraction,
-  ForumChannel,
   InteractionWebhook,
   Message,
   MessageActionRowComponentBuilder,
   MessageComponentInteraction,
   MessageCreateOptions,
   MessagePayload,
-  TextBasedChannel,
   WebhookMessageEditOptions,
 } from 'discord.js';
 import { PageActionRow, PageButton, PageSelect } from './PageComponents';
 import { SlashasaurusClient } from './SlashasaurusClient';
-import { MaybePromise } from './utilityTypes';
+import { GetConnectorType, MaybePromise } from './utilityTypes';
 
 interface SerializedObject {
   type: string;
@@ -88,7 +86,7 @@ export abstract class Page<
   nextId: number;
   message: Message | PageInteractionReplyMessage | null;
   static pageId = DEFAULT_PAGE_ID;
-  latestInteraction: ConnectorTypes['MessageComponentInteraction'] | null =
+  latestInteraction: GetConnectorType<'MessageComponentInteraction'> | null =
     null;
 
   constructor(props: P) {
@@ -127,22 +125,22 @@ export abstract class Page<
     return;
   }
 
-  sendToChannel(channel: TextBasedChannel) {
-    // return this.client.sendPageToChannel(this, channel);
-  }
+  // sendToChannel(channel: TextBasedChannel) {
+  //   return this.client.sendPageToChannel(this, channel);
+  // }
 
-  sendAsForumPost(channel: ForumChannel, postTitle: string) {
-    // return this.client.sendPageToForumChannel(this, postTitle, channel);
-  }
+  // sendAsForumPost(channel: ForumChannel, postTitle: string) {
+  //   return this.client.sendPageToForumChannel(this, postTitle, channel);
+  // }
 
-  sendAsReply(
-    interaction:
-      | ConnectorTypes['MessageComponentInteraction']
-      | ConnectorTypes['CommandInteraction'],
-    ephemeral = false
-  ) {
-    // return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
-  }
+  // sendAsReply(
+  //   interaction:
+  //     | GetConnectorType<'MessageComponentInteraction'>
+  //     | GetConnectorType<'CommandInteraction'>,
+  //   ephemeral = false
+  // ) {
+  //   return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
+  // }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async transitionTo(newPage: Page<any, any>) {
@@ -165,12 +163,12 @@ export abstract class Page<
   handleId(
     id: string,
     interaction:
-      | ConnectorTypes['ButtonInteraction']
-      | ConnectorTypes['SelectMenuInteraction']
-      | ConnectorTypes['UserSelectMenuInteraction']
-      | ConnectorTypes['RoleSelectMenuInteraction']
-      | ConnectorTypes['ChannelSelectMenuInteraction']
-      | ConnectorTypes['MentionableSelectMenuInteraction']
+      | GetConnectorType<'ButtonInteraction'>
+      | GetConnectorType<'SelectMenuInteraction'>
+      | GetConnectorType<'UserSelectMenuInteraction'>
+      | GetConnectorType<'RoleSelectMenuInteraction'>
+      | GetConnectorType<'ChannelSelectMenuInteraction'>
+      | GetConnectorType<'MentionableSelectMenuInteraction'>
   ) {
     const handler = this.handlers.get(id);
     if (handler) {
@@ -269,7 +267,7 @@ function componentToDjsComponent<P, S>(
 }
 
 export function compareMessages(
-  a: ConnectorTypes['MessageComponentInteraction']['message'],
+  a: GetConnectorType<'MessageComponentInteraction'>['message'],
   b: RenderedPage
 ) {
   if (a.content !== (b.content ?? '')) return false;

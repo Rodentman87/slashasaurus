@@ -50,7 +50,7 @@ import {
   SlashCommand,
 } from './SlashCommandBase';
 import { TemplateModal } from './TemplateModal';
-import { MaybePromise } from './utilityTypes';
+import { GetConnectorType, MaybePromise } from './utilityTypes';
 
 const JSFileRegex = /(?<!\.d)(\.js|\.ts)x?$/;
 
@@ -60,10 +60,10 @@ export interface MessageData {
   messageId: string;
 }
 
-interface InteractionMessageData {
-  webhookToken: string;
-  messageId: string;
-}
+// interface InteractionMessageData {
+//   webhookToken: string;
+//   messageId: string;
+// }
 
 type StorePageStateFn = (
   messageId: string,
@@ -81,7 +81,7 @@ export interface SlashasaurusClientOptions {
   /**
    * The client to use
    */
-  client: ConnectorTypes['Client'];
+  client: GetConnectorType<'Client'>;
 
   /**
    * You can pass any logger compatible with [pino](https://getpino.io/)
@@ -173,7 +173,7 @@ export class SlashasaurusClient {
   storePageState: StorePageStateFn;
   getPageState: GetPageStateFn;
 
-  client: ConnectorTypes['Client'];
+  client: GetConnectorType<'Client'>;
   connector: Connector;
 
   constructor(connector: Connector, options: SlashasaurusClientOptions) {
@@ -827,7 +827,7 @@ export class SlashasaurusClient {
    */
   async handleCommand(
     name: string,
-    interaction: ConnectorTypes['ChatInputCommandInteraction']
+    interaction: GetConnectorType<'ChatInputCommandInteraction'>
   ) {
     const command = this.commandMap.get(name);
     if (!command) {
@@ -867,7 +867,7 @@ export class SlashasaurusClient {
     name: string,
     focusedName: string,
     focusedValue: unknown,
-    interaction: ConnectorTypes['AutocompleteInteraction']
+    interaction: GetConnectorType<'AutocompleteInteraction'>
   ) {
     const command = this.commandMap.get(name);
     if (!command) {
@@ -917,12 +917,12 @@ export class SlashasaurusClient {
   async handleContextMenu(
     name: string,
     type: 2 | 3,
-    interaction: ConnectorTypes['ContextMenuCommandInteraction']
+    interaction: GetConnectorType<'ContextMenuCommandInteraction'>
   ) {
     const command =
-      type === 2
-        ? this.messageContextMenuMap.get(name)
-        : this.userContextMenuMap.get(name);
+      type === ApplicationCommandType.User
+        ? this.userContextMenuMap.get(name)
+        : this.messageContextMenuMap.get(name);
     if (!command) {
       return false;
     } else {
@@ -936,7 +936,7 @@ export class SlashasaurusClient {
   // #region Page component handlers
   // TODO redo this with connector
   // private async handlePageButton(
-  //   interaction: ConnectorTypes['ButtonInteraction']
+  //   interaction: GetConnectorType<'ButtonInteraction'>
   // ) {
   //   let page = this.activePages.get(interaction.message.id);
   //   if (!page) {
@@ -986,7 +986,7 @@ export class SlashasaurusClient {
   // }
 
   // private async handlePageSelect(
-  //   interaction: ConnectorTypes['SelectMenuInteraction']
+  //   interaction: GetConnectorType<'SelectMenuInteraction'>
   // ) {
   //   let page = this.activePages.get(interaction.message.id);
   //   if (!page) {
@@ -1036,7 +1036,7 @@ export class SlashasaurusClient {
   // #region Modal handlers
   // TODO need to fully redo this
   // private async handleModalSubmit(
-  //   interaction: ConnectorTypes['ModalSubmitInteraction']
+  //   interaction: GetConnectorType<'ModalSubmitInteraction'>
   // ) {
   //   const modal = this.modalMap.get(interaction.customId);
   //   if (!modal) return;
@@ -1051,8 +1051,8 @@ export class SlashasaurusClient {
   // async replyToInteractionWithPage<P, S>(
   //   page: Page<P, S>,
   //   interaction:
-  //     | ConnectorTypes['MessageComponentInteraction']
-  //     | ConnectorTypes['CommandInteraction'],
+  //     | GetConnectorType<'MessageComponentInteraction'>
+  //     | GetConnectorType<'CommandInteraction'>,
   //   ephemeral: boolean
   // ) {
   //   const messageOptions = await page.render();
