@@ -30,6 +30,7 @@ import {
   VoiceChannel,
 } from 'discord.js';
 import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
+import { SendablePage } from './Page';
 
 export type ExtractArrayType<T> = ((a: T) => never) extends (
   a: Array<infer H>
@@ -80,8 +81,19 @@ interface DefaultConnectorTypes {
   ChannelSelectMenuInteraction: APIMessageChannelSelectInteractionData;
   MentionableSelectMenuInteraction: APIMessageMentionableSelectInteractionData;
   Message: APIMessage;
-  InteractionWebhook: unknown;
+  InteractionWebhook: ModifiableWebhook;
   Interaction: APIInteraction;
+}
+
+export interface ModifiableWebhook {
+  /**
+   * Takes a message id and the new message data and edits the message
+   */
+  editMessage: (id: string, data: SendablePage) => Promise<void>;
+  /**
+   * Takes a message id and deletes the message
+   */
+  deleteMessage: (id: string) => Promise<void>;
 }
 
 type HasChoices = {

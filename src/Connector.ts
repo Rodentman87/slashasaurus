@@ -1,8 +1,11 @@
 import {
   APIMessage,
   ApplicationCommandOptionType,
+  RESTPatchAPIChannelMessageJSONBody,
 } from 'discord-api-types/v10';
-import { GetConnectorType } from './utilityTypes';
+import { ComparableMessage, SendablePage } from './Page';
+import { InteractionMessageData, MessageData } from './SlashasaurusClient';
+import { GetConnectorType, ModifiableWebhook } from './utilityTypes';
 
 export interface Connector {
   getCommandGroup: (
@@ -12,10 +15,13 @@ export interface Connector {
     interaction: GetConnectorType<'ChatInputCommandInteraction'>
   ) => string | undefined;
 
-  // getGuildMessage: (data: MessageData) => Promise<GetConnectorType<'Message'>>;
-  // getDMMessage: (
-  //   data: Omit<MessageData, 'guildId'>
-  // ) => Promise<GetConnectorType<'Message'>>;
+  deleteMessage: (
+    messageData: MessageData | InteractionMessageData
+  ) => Promise<void>;
+  editMessage: (
+    messageData: MessageData,
+    data: Partial<RESTPatchAPIChannelMessageJSONBody>
+  ) => Promise<void>;
 
   getOptionValue: (
     interaction: GetConnectorType<'ChatInputCommandInteraction'>,
@@ -30,22 +36,38 @@ export interface Connector {
     required: boolean
   ) => any;
 
-  // createInteractionWebhook: (
-  //   client: GetConnectorType<'Client'>,
-  //   appId: string,
-  //   token: string
-  // ) => GetConnectorType<'InteractionWebhook'>;
+  createInteractionWebhook: (
+    client: GetConnectorType<'Client'>,
+    appId: string,
+    token: string
+  ) => GetConnectorType<'InteractionWebhook'>;
+
+  interactionToComparableMessage: (
+    interaction: GetConnectorType<'MessageComponentInteraction'>
+  ) => ComparableMessage;
 
   getApplicationId: (client: GetConnectorType<'Client'>) => string;
 
-  // messageToMessageData: (
-  //   message: GetConnectorType<'Message'> | PageInteractionReplyMessage
-  // ) => string;
+  getModifiableWebhookFromInteraction: (
+    interaction: GetConnectorType<'Interaction'>
+  ) => ModifiableWebhook;
+  getInteractionToken: (interaction: GetConnectorType<'Interaction'>) => string;
 
   replyToInteraction: (
     interaction:
-      | GetConnectorType<'ChatInputCommandInteraction'>
+      | GetConnectorType<'CommandInteraction'>
       | GetConnectorType<'MessageComponentInteraction'>,
     data: Partial<APIMessage>
-  ) => Promise<void>;
+  ) => Promise<{ messageId: string }>;
+
+  /**
+   * Either respond to the interaction with the update callback, or return false if the interaction has already been replied to
+   * @param interaction the interaction to reply to
+   * @param data the message data
+   * @returns Whether or not the interaction was updated
+   */
+  tryUpdate: (
+    interaction: GetConnectorType<'Interaction'>,
+    data: Partial<SendablePage>
+  ) => Promise<boolean>;
 }

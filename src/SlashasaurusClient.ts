@@ -26,7 +26,11 @@ import {
   SlashCommandSubcommandGroupBuilder,
 } from '@discordjs/builders';
 import { REST } from '@discordjs/rest';
-import { ApplicationCommandType, Routes } from 'discord-api-types/v10';
+import {
+  ApplicationCommandType,
+  MessageFlags,
+  Routes,
+} from 'discord-api-types/v10';
 import { readdir, stat } from 'fs/promises';
 import { join } from 'path';
 import { Connector } from './Connector';
@@ -38,7 +42,15 @@ import {
   UserCommand,
 } from './ContextMenuBase';
 import { Middleware, Pipeline } from './MiddlewarePipeline';
-import { DEFAULT_PAGE_ID, DeserializeStateFn, isPage, Page } from './Page';
+import {
+  compareMessages,
+  DEFAULT_PAGE_ID,
+  DeserializeStateFn,
+  isPage,
+  Page,
+  pageComponentRowsToComponents,
+  PageInteractionReplyMessage,
+} from './Page';
 import { PingableTimedCache } from './PingableTimedCache';
 import {
   AutocompleteFunction,
@@ -60,10 +72,10 @@ export interface MessageData {
   messageId: string;
 }
 
-// interface InteractionMessageData {
-//   webhookToken: string;
-//   messageId: string;
-// }
+export interface InteractionMessageData {
+  webhookToken: string;
+  messageId: string;
+}
 
 type StorePageStateFn = (
   messageId: string,
@@ -894,7 +906,8 @@ export class SlashasaurusClient {
       );
       return true;
     } else {
-      // @ts-expect-error This will complain because the autocomplete is typed here with []
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore pain
       await this.autocompleteMiddleware.execute(
         command.autocomplete,
         interaction,
@@ -934,6 +947,66 @@ export class SlashasaurusClient {
   }
 
   // #region Page component handlers
+  public async handleComponentInteraction(
+    interaction: GetConnectorType<'MessageComponentInteraction'>,
+    messageId: string,
+    customId: string
+  ) {
+    if (!customId.startsWith('~')) return;
+    let page = this.activePages.get(messageId);
+    if (!page) {
+      page = await this.getPageFromMessage(messageId, interaction);
+      if (!page) {
+        return;
+      }
+      this.activePages.set(messageId, page);
+      const renderedPage = await page.render();
+      if (
+        !compareMessages(
+          this.connector.interactionToComparableMessage(interaction),
+          renderedPage
+        )
+      ) {
+        // await interaction.update({
+        //   content: null,
+        //   embeds: [],
+        //   ...renderedPage,
+        //   components: renderedPage.components
+        //     ? pageComponentRowsToComponents(renderedPage.components, page)
+        //     : [],
+        //   fetchReply: true,
+        //   flags: renderedPage.flags,
+        // });
+        // interaction.followUp({
+        //   content:
+        //     "An older version of this page was stored, it's been updated. Click the button you want again.",
+        //   ephemeral: true,
+        // });
+        console.log('Old page');
+        return;
+      }
+    }
+    const message = page.message;
+    if (message instanceof PageInteractionReplyMessage) {
+      // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
+      page.message = new PageInteractionReplyMessage(
+        this.connector.getModifiableWebhookFromInteraction(interaction),
+        this.connector.getInteractionToken(interaction),
+        message.messageId
+      );
+      // Store the updated page
+      const state = await page.serializeState();
+      this.storePageState(
+        page.message.messageId,
+        page.constructor.pageId,
+        state,
+        JSON.stringify(page.message.serialize())
+      );
+    }
+    page.latestInteraction = interaction;
+    page.handleId(customId.split(';')[1], interaction as any);
+  }
+
   // TODO redo this with connector
   // private async handlePageButton(
   //   interaction: GetConnectorType<'ButtonInteraction'>
@@ -1048,63 +1121,40 @@ export class SlashasaurusClient {
   // }
 
   // #region More Page stuff
-  // async replyToInteractionWithPage<P, S>(
-  //   page: Page<P, S>,
-  //   interaction:
-  //     | GetConnectorType<'MessageComponentInteraction'>
-  //     | GetConnectorType<'CommandInteraction'>,
-  //   ephemeral: boolean
-  // ) {
-  //   const messageOptions = await page.render();
-  //   if (ephemeral) {
-  //     // We need to save the interaction instead since it doesn't return a message we can edit
-  //     const message = await interaction.reply({
-  //       ...messageOptions,
-  //       content: messageOptions.content ?? undefined,
-  //       components: messageOptions.components
-  //         ? pageComponentRowsToComponents(messageOptions.components, page)
-  //         : [],
-  //       ephemeral: true,
-  //       fetchReply: true,
-  //       flags: messageOptions.flags,
-  //     });
-  //     page.message = new PageInteractionReplyMessage(
-  //       interaction.webhook,
-  //       message.id
-  //     );
-  //     const state = await page.serializeState();
-  //     this.storePageState(
-  //       message.id,
-  //       page.constructor.pageId,
-  //       state,
-  //       messageToMessageData(page.message)
-  //     );
-  //     this.activePages.set(message.id, page);
-  //   } else {
-  //     const message = await interaction.reply({
-  //       ...messageOptions,
-  //       content: messageOptions.content ?? undefined,
-  //       components: messageOptions.components
-  //         ? pageComponentRowsToComponents(messageOptions.components, page)
-  //         : [],
-  //       fetchReply: true,
-  //       flags: messageOptions.flags,
-  //     });
-  //     page.message = new PageInteractionReplyMessage(
-  //       interaction.webhook,
-  //       message.id
-  //     );
-  //     const state = await page.serializeState();
-  //     this.storePageState(
-  //       message.id,
-  //       page.constructor.pageId,
-  //       state,
-  //       messageToMessageData(page.message)
-  //     );
-  //     this.activePages.set(message.id, page);
-  //   }
-  //   page.pageDidSend?.();
-  // }
+  async replyToInteractionWithPage<P, S>(
+    page: Page<P, S>,
+    interaction:
+      | GetConnectorType<'MessageComponentInteraction'>
+      | GetConnectorType<'CommandInteraction'>,
+    ephemeral: boolean
+  ) {
+    const messageOptions = await page.render();
+    // We need to save the interaction instead since it doesn't return a message we can edit
+    const { messageId } = await this.connector.replyToInteraction(interaction, {
+      ...messageOptions,
+      content: messageOptions.content ?? undefined,
+      components: messageOptions.components
+        ? pageComponentRowsToComponents(messageOptions.components, page)
+        : [],
+      flags: ephemeral
+        ? (messageOptions.flags ?? 0) | MessageFlags.Ephemeral
+        : messageOptions.flags ?? 0,
+    } as any);
+    page.message = new PageInteractionReplyMessage(
+      this.connector.getModifiableWebhookFromInteraction(interaction),
+      this.connector.getInteractionToken(interaction),
+      messageId
+    );
+    const state = await page.serializeState();
+    this.storePageState(
+      messageId,
+      page.constructor.pageId,
+      state,
+      JSON.stringify(page.message.serialize())
+    );
+    this.activePages.set(messageId, page);
+    page.pageDidSend?.();
+  }
 
   // async sendPageToChannel<P, S>(
   //   page: Page<P, S>,
@@ -1157,112 +1207,111 @@ export class SlashasaurusClient {
   //   this.activePages.set(thread.lastMessage!.id, page);
   // }
 
-  // async updatePage<P, S>(page: Page<P, S>, newState: S) {
-  //   if (!page.message)
-  //     throw new Error('You cannot update a page before it has been sent');
-  //   page.state = newState;
-  //   const messageOptions = await page.render();
-  //   const { message } = page;
-  //   if (
-  //     message instanceof PageInteractionReplyMessage &&
-  //     page.latestInteraction &&
-  //     !(page.latestInteraction.deferred || page.latestInteraction.replied)
-  //   ) {
-  //     await page.latestInteraction.update({
-  //       ...messageOptions,
-  //       components: messageOptions.components
-  //         ? pageComponentRowsToComponents(messageOptions.components, page)
-  //         : [],
-  //       flags: messageOptions.flags as any,
-  //     });
-  //   } else {
-  //     await message.edit({
-  //       ...messageOptions,
-  //       components: messageOptions.components
-  //         ? pageComponentRowsToComponents(messageOptions.components, page)
-  //         : [],
-  //       flags: messageOptions.flags as any,
-  //     });
-  //   }
-  //   const state = await page.serializeState();
-  //   this.activePages.set(message.id, page);
-  //   this.storePageState(
-  //     page.message.id,
-  //     page.constructor.pageId,
-  //     state,
-  //     messageToMessageData(page.message)
-  //   );
-  // }
+  async updatePage<P, S>(page: Page<P, S>, newState: S) {
+    if (!page.message)
+      throw new Error('You cannot update a page before it has been sent');
+    page.state = newState;
+    const messageOptions = await page.render();
+    const { message } = page;
+    if (message instanceof PageInteractionReplyMessage) {
+      let didUpdate = false;
+      if (page.latestInteraction) {
+        didUpdate = await this.connector.tryUpdate(page.latestInteraction, {
+          ...messageOptions,
+          components: messageOptions.components
+            ? pageComponentRowsToComponents(messageOptions.components, page)
+            : [],
+        });
+      }
+      if (!didUpdate) {
+        message.edit({
+          ...messageOptions,
+          components: messageOptions.components
+            ? pageComponentRowsToComponents(messageOptions.components, page)
+            : [],
+        });
+      }
+    } else {
+      await this.connector.editMessage(message, {
+        ...messageOptions,
+        components: messageOptions.components
+          ? pageComponentRowsToComponents(messageOptions.components, page)
+          : [],
+      });
+    }
+    const state = await page.serializeState();
+    this.activePages.set(message.messageId, page);
+    this.storePageState(
+      page.message.messageId,
+      page.constructor.pageId,
+      state,
+      JSON.stringify(
+        page.message instanceof PageInteractionReplyMessage
+          ? page.message.serialize()
+          : page.message
+      )
+    );
+  }
 
-  // async getPageFromMessage(
-  //   messageId: string,
-  //   interaction: T['MessageComponentInteraction'] | T['CommandInteraction']
-  // ) {
-  //   const cachedPage = this.activePages.get(messageId);
-  //   if (!cachedPage) {
-  //     const { pageId, stateString, messageData } = await this.getPageState(
-  //       messageId
-  //     );
-  //     const message = await this.getMessage(JSON.parse(messageData));
-  //     if (!message)
-  //       throw new Error(
-  //         `Failed to load Page message. ${JSON.stringify(messageData)}`
-  //       );
-  //     const { page: pageConstructor, deserialize } =
-  //       this.pageMap.get(pageId) ?? {};
-  //     if (!pageConstructor || !deserialize)
-  //       throw new Error(
-  //         `A component tried to load a page type that isn't registered, ${pageId}`
-  //       );
-  //     const deserialized = await deserialize(stateString, interaction);
-  //     if (!('props' in deserialized)) {
-  //       if (message instanceof Message) {
-  //         await message.delete();
-  //       } else {
-  //         await message.edit({
-  //           content: 'This page has been closed',
-  //           components: [],
-  //         });
-  //       }
-  //       return;
-  //     }
-  //     const { props, state } = deserialized;
-  //     // @ts-expect-error will complain, but we know this is a constructor and JS will complain if we don't do `new`
-  //     const newPage: Page = new pageConstructor(props);
-  //     newPage.state = state;
-  //     newPage.message = message;
-  //     const rendered = await newPage.render();
-  //     if (rendered.components)
-  //       pageComponentRowsToComponents(rendered.components, newPage);
-  //     this.activePages.set(message.id, newPage);
-  //     return newPage;
-  //   }
-  //   return cachedPage;
-  // }
+  async getPageFromMessage(
+    messageId: string,
+    interaction:
+      | GetConnectorType<'MessageComponentInteraction'>
+      | GetConnectorType<'CommandInteraction'>
+  ) {
+    const cachedPage = this.activePages.get(messageId);
+    if (!cachedPage) {
+      const { pageId, stateString, messageData } = await this.getPageState(
+        messageId
+      );
+      const parsedMessageData = JSON.parse(messageData) as
+        | MessageData
+        | InteractionMessageData;
+      const message = await this.getMessage(parsedMessageData, interaction);
+      if (!message)
+        throw new Error(
+          `Failed to load Page message. ${JSON.stringify(messageData)}`
+        );
+      const { page: pageConstructor, deserialize } =
+        this.pageMap.get(pageId) ?? {};
+      if (!pageConstructor || !deserialize)
+        throw new Error(
+          `A component tried to load a page type that isn't registered, ${pageId}`
+        );
+      const deserialized = await deserialize(stateString, interaction);
+      if (!('props' in deserialized)) {
+        this.connector.deleteMessage(parsedMessageData);
+        return;
+      }
+      const { props, state } = deserialized;
+      // @ts-expect-error will complain, but we know this is a constructor and JS will complain if we don't do `new`
+      const newPage: Page = new pageConstructor(props);
+      newPage.state = state;
+      newPage.message = message;
+      const rendered = await newPage.render();
+      if (rendered.components)
+        pageComponentRowsToComponents(rendered.components, newPage);
+      this.activePages.set(messageId, newPage);
+      return newPage;
+    }
+    return cachedPage;
+  }
 
-  // private async getMessage(messageData: MessageData | InteractionMessageData) {
-  //   if ('guildId' in messageData) {
-  //     try {
-  //       if (messageData.guildId !== 'dm') {
-  //         return await this.connector.getGuildMessage(messageData);
-  //       } else {
-  //         return await this.connector.getDMMessage(messageData);
-  //       }
-  //     } catch (e) {
-  //       throw new Error(
-  //         `Tried to fetch a message the bot can no longer see: ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
-  //       );
-  //     }
-  //   } else {
-  //     return new PageInteractionReplyMessage(
-  //       this.connector.createInteractionWebhook(
-  //         this.client,
-  //         this.connector.getApplicationId(this.client),
-  //         messageData.webhookToken
-  //       ),
-  //       messageData.messageId
-  //     );
-  //   }
-  //   return;
-  // }
+  private async getMessage(
+    messageData: MessageData | InteractionMessageData,
+    interaction:
+      | GetConnectorType<'MessageComponentInteraction'>
+      | GetConnectorType<'CommandInteraction'>
+  ) {
+    if ('guildId' in messageData) {
+      return messageData;
+    } else {
+      return new PageInteractionReplyMessage(
+        this.connector.getModifiableWebhookFromInteraction(interaction),
+        this.connector.getInteractionToken(interaction),
+        messageData.messageId
+      );
+    }
+    return;
+  }
 }

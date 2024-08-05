@@ -1,19 +1,33 @@
-import { EmbedBuilder } from '@discordjs/builders';
 import {
-  ActionRowBuilder,
+  APIActionRowComponent,
   APIEmbed,
-  CommandInteraction,
-  InteractionWebhook,
-  Message,
-  MessageActionRowComponentBuilder,
-  MessageComponentInteraction,
-  MessageCreateOptions,
-  MessagePayload,
-  WebhookMessageEditOptions,
-} from 'discord.js';
-import { PageActionRow, PageButton, PageSelect } from './PageComponents';
-import { SlashasaurusClient } from './SlashasaurusClient';
-import { GetConnectorType, MaybePromise } from './utilityTypes';
+  APIMessageActionRowComponent,
+  ComponentType,
+  RESTPostAPIChannelMessageJSONBody,
+} from 'discord-api-types/v10';
+// import {
+//   ActionRowBuilder,
+//   APIEmbed,
+//   MessageActionRowComponentBuilder,
+//   MessageCreateOptions,
+//   MessagePayload,
+// } from 'discord.js';
+import {
+  ComparableComponent,
+  PageActionRow,
+  PageButton,
+  PageSelect,
+} from './PageComponents';
+import {
+  InteractionMessageData,
+  MessageData,
+  SlashasaurusClient,
+} from './SlashasaurusClient';
+import {
+  GetConnectorType,
+  MaybePromise,
+  ModifiableWebhook,
+} from './utilityTypes';
 
 interface SerializedObject {
   type: string;
@@ -35,10 +49,28 @@ export type PageComponentArray = PageButtonRow | PageSelectRow;
 type PageComponentRows = (PageComponentArray | PageActionRow)[];
 
 export interface RenderedPage
-  extends Omit<MessageCreateOptions, 'nonce' | 'components' | 'content'> {
+  extends Omit<
+    RESTPostAPIChannelMessageJSONBody,
+    | 'nonce'
+    | 'components'
+    | 'content'
+    | 'embeds'
+    | 'attachments'
+    | 'message_reference'
+    | 'tts'
+  > {
   content?: string | null;
   components?: PageComponentRows;
-  embeds?: (APIEmbed | EmbedBuilder)[];
+  embeds?: APIEmbed[];
+}
+
+export interface SendablePage {
+  content?: string | null;
+  components?: APIActionRowComponent<APIMessageActionRowComponent>[];
+  embeds?: APIEmbed[];
+  flags?: number;
+  allowed_mentions?: RESTPostAPIChannelMessageJSONBody['allowed_mentions'];
+  sticker_ids?: RESTPostAPIChannelMessageJSONBody['sticker_ids'];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,14 +82,25 @@ export function isPage(thing: any): thing is Page['constructor'] {
 export const DEFAULT_PAGE_ID = 'DEFAULT_PAGE_ID';
 
 export class PageInteractionReplyMessage {
-  constructor(public webhook: InteractionWebhook, public id: string) {}
+  constructor(
+    public webhook: ModifiableWebhook,
+    public webhookToken: string,
+    public messageId: string
+  ) {}
 
-  async edit(options: string | MessagePayload | WebhookMessageEditOptions) {
-    await this.webhook.editMessage(this.id, options);
+  async edit(options: SendablePage) {
+    await this.webhook.editMessage(this.messageId, options);
   }
 
   async delete() {
-    await this.webhook.deleteMessage(this.id);
+    await this.webhook.deleteMessage(this.messageId);
+  }
+
+  serialize(): InteractionMessageData {
+    return {
+      messageId: this.messageId,
+      webhookToken: this.webhookToken,
+    };
   }
 }
 
@@ -84,7 +127,7 @@ export abstract class Page<
   // eslint-disable-next-line @typescript-eslint/ban-types
   handlers: Map<string, Function>;
   nextId: number;
-  message: Message | PageInteractionReplyMessage | null;
+  message: MessageData | PageInteractionReplyMessage | null;
   static pageId = DEFAULT_PAGE_ID;
   latestInteraction: GetConnectorType<'MessageComponentInteraction'> | null =
     null;
@@ -121,7 +164,7 @@ export abstract class Page<
       ...this.state,
     };
     Object.assign(newState, nextState);
-    // await this.client.updatePage(this, newState);
+    await this.client.updatePage(this, newState);
     return;
   }
 
@@ -133,14 +176,14 @@ export abstract class Page<
   //   return this.client.sendPageToForumChannel(this, postTitle, channel);
   // }
 
-  // sendAsReply(
-  //   interaction:
-  //     | GetConnectorType<'MessageComponentInteraction'>
-  //     | GetConnectorType<'CommandInteraction'>,
-  //   ephemeral = false
-  // ) {
-  //   return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
-  // }
+  sendAsReply(
+    interaction:
+      | GetConnectorType<'MessageComponentInteraction'>
+      | GetConnectorType<'CommandInteraction'>,
+    ephemeral = false
+  ) {
+    return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async transitionTo(newPage: Page<any, any>) {
@@ -210,7 +253,9 @@ export type DeserializeStateFn<
   S = Record<string, never>
 > = (
   serializedState: string,
-  interaction?: MessageComponentInteraction | CommandInteraction
+  interaction?:
+    | GetConnectorType<'MessageComponentInteraction'>
+    | GetConnectorType<'CommandInteraction'>
 ) => MaybePromise<
   | {
       props: P;
@@ -222,22 +267,24 @@ export type DeserializeStateFn<
 export function pageComponentRowsToComponents<P, S>(
   rows: PageComponentRows,
   page: Page<P, S>
-): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
+): APIActionRowComponent<APIMessageActionRowComponent>[] {
   page.clearHandlers();
   const pageId = page.constructor.pageId;
   return rows
     .map((row) => {
-      const actionRow =
-        new ActionRowBuilder<MessageActionRowComponentBuilder>();
+      const actionRow: APIActionRowComponent<APIMessageActionRowComponent> = {
+        type: ComponentType.ActionRow,
+        components: [],
+      };
       if (row instanceof PageActionRow) {
         row.children.forEach((component) => {
-          actionRow.addComponents(
+          actionRow.components.push(
             componentToDjsComponent(component, page, pageId)
           );
         });
       } else if (Array.isArray(row)) {
         row.forEach((component) => {
-          actionRow.addComponents(
+          actionRow.components.push(
             componentToDjsComponent(component, page, pageId)
           );
         });
@@ -246,9 +293,9 @@ export function pageComponentRowsToComponents<P, S>(
       }
       return actionRow;
     })
-    .filter<ActionRowBuilder<MessageActionRowComponentBuilder>>(
-      (e): e is ActionRowBuilder<MessageActionRowComponentBuilder> =>
-        e instanceof ActionRowBuilder
+    .filter<APIActionRowComponent<APIMessageActionRowComponent>>(
+      (e): e is APIActionRowComponent<APIMessageActionRowComponent> =>
+        e !== null
     );
 }
 
@@ -256,20 +303,27 @@ function componentToDjsComponent<P, S>(
   component: PageComponentArray[number],
   page: Page<P, S>,
   pageId: string
-) {
+): APIMessageActionRowComponent {
   if ('handler' in component) {
-    return component.toDjsComponent(
-      `~${pageId};${page.registerHandler(component.handler)}`
-    );
+    return component
+      .toApiComponent(`~${pageId};${page.registerHandler(component.handler)}`)
+      .toJSON();
   } else {
-    return component.toDjsComponent();
+    return component.toApiComponent().toJSON();
   }
 }
 
-export function compareMessages(
-  a: GetConnectorType<'MessageComponentInteraction'>['message'],
-  b: RenderedPage
-) {
+interface ComparableActionRow {
+  components: ComparableComponent[];
+}
+
+export interface ComparableMessage {
+  content?: string;
+  components?: ComparableActionRow[];
+  embeds: APIEmbed[];
+}
+
+export function compareMessages(a: ComparableMessage, b: RenderedPage) {
   if (a.content !== (b.content ?? '')) return false;
 
   const bComponents = b.components?.filter(
@@ -304,8 +358,7 @@ export function compareMessages(
     return false;
   if (a.embeds.length > 0) {
     if (
-      !(b.embeds ?? []).every((bEmbedData, index) => {
-        const bEmbed = 'data' in bEmbedData ? bEmbedData.data : bEmbedData;
+      !(b.embeds ?? []).every((bEmbed, index) => {
         return embedsAreEqual(a.embeds[index], bEmbed);
       })
     ) {
