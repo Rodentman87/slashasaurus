@@ -155,7 +155,7 @@ export class PageInteractableButton implements ExportableToDjsComponent {
 
   toApiComponent(id: string): ButtonBuilder {
     const builder = new ButtonBuilder({
-      style: this.style,
+      style: this.style as any, // TODO fix this
       disabled: this.disabled,
       custom_id: id,
     });
@@ -195,7 +195,7 @@ export class PageLinkButton implements ExportableToDjsComponent {
 
   toApiComponent(): ButtonBuilder {
     const builder = new ButtonBuilder({
-      style: ButtonStyle.Link,
+      style: ButtonStyle.Link as any, // TODO fix this
       disabled: this.disabled,
       url: this.url,
     });
