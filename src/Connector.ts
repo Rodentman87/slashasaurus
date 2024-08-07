@@ -36,12 +36,6 @@ export interface Connector {
     required: boolean
   ) => any;
 
-  createInteractionWebhook: (
-    client: GetConnectorType<'Client'>,
-    appId: string,
-    token: string
-  ) => ModifiableWebhook;
-
   interactionToComparableMessage: (
     interaction: GetConnectorType<'MessageComponentInteraction'>
   ) => ComparableMessage;
