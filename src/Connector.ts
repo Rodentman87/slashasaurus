@@ -40,7 +40,7 @@ export interface Connector {
     client: GetConnectorType<'Client'>,
     appId: string,
     token: string
-  ) => GetConnectorType<'InteractionWebhook'>;
+  ) => ModifiableWebhook;
 
   interactionToComparableMessage: (
     interaction: GetConnectorType<'MessageComponentInteraction'>

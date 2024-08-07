@@ -1,24 +1,3 @@
-// import {
-//   AutocompleteInteraction,
-//   BaseGuildTextChannel,
-//   BitFieldResolvable,
-//   ButtonInteraction,
-//   ChatInputCommandInteraction,
-//   Client,
-//   ClientEvents,
-//   ClientOptions,
-//   CommandInteraction,
-//   ContextMenuCommandInteraction,
-//   DMChannel,
-//   Interaction,
-//   InteractionWebhook,
-//   Message,
-//   MessageComponentInteraction,
-//   MessageFlagsString,
-//   ModalSubmitInteraction,
-//   SelectMenuInteraction,
-//   TextBasedChannel,
-// } from 'discord.js';
 import {
   ContextMenuCommandBuilder,
   SlashCommandBuilder,
@@ -516,7 +495,6 @@ export class SlashasaurusClient {
             );
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(
-            // @ts-expect-error I will fix this later
             populateBuilder(command.commandInfo, new SlashCommandBuilder())
           );
           this.logger?.debug(`Loaded chat command ${command.commandInfo.name}`);
@@ -599,10 +577,8 @@ export class SlashasaurusClient {
             throw new Error(`Duplicate command name ${mapName}`);
           this.commandMap.set(mapName, command);
           commandData.push(
-            // @ts-expect-error I will fix this later
             populateBuilder(
               command.commandInfo,
-              // @ts-expect-error I will fix this later
               new SlashCommandSubcommandBuilder()
             )
           );
@@ -706,10 +682,8 @@ export class SlashasaurusClient {
             throw new Error(`Duplicate command name ${mapName}`);
           this.commandMap.set(mapName, command);
           commandData.push(
-            // @ts-expect-error I will fix this later
             populateBuilder(
               command.commandInfo,
-              // @ts-expect-error I will fix this later
               new SlashCommandSubcommandBuilder()
             )
           );

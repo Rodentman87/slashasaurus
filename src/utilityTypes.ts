@@ -81,7 +81,6 @@ interface DefaultConnectorTypes {
   ChannelSelectMenuInteraction: APIMessageChannelSelectInteractionData;
   MentionableSelectMenuInteraction: APIMessageMentionableSelectInteractionData;
   Message: APIMessage;
-  InteractionWebhook: ModifiableWebhook;
   Interaction: APIInteraction;
 }
 

@@ -1,11 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
-	ApplicationCommandOptionType,
-	InteractionType,
-	LocalizationMap,
-} from 'discord-api-types/v10';
-import {
-	ChatInputCommandInteraction,
 	SlashCommandAttachmentOption,
 	SlashCommandBooleanOption,
 	SlashCommandBuilder,
@@ -17,6 +11,14 @@ import {
 	SlashCommandStringOption,
 	SlashCommandSubcommandBuilder,
 	SlashCommandUserOption
+} from "@discordjs/builders";
+import {
+	ApplicationCommandOptionType,
+	InteractionType,
+	LocalizationMap,
+} from 'discord-api-types/v10';
+import {
+	ChatInputCommandInteraction,
 } from 'discord.js';
 import { Connector } from './Connector';
 import { ValidationError } from './CustomErrors';
@@ -340,7 +342,6 @@ export function populateBuilder<
           .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
           .setRequired(option.required ?? false);
         if (option.channelTypes) {
-          // @ts-expect-error I need to PR this to discord.js to allow forums as a channel type
           channel.addChannelTypes(...option.channelTypes);
         }
         builder.addChannelOption(channel);
