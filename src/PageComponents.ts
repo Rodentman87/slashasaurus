@@ -38,7 +38,7 @@ type PageButtonLabelOptions =
 interface ComparableButton {
   type: ComponentType.Button;
   style: ButtonStyle;
-  disabled: boolean;
+  disabled?: boolean;
   label?: string;
   emoji?: APIMessageComponentEmoji;
   url?: string;
