@@ -16,17 +16,18 @@
     "eslint": "^8.16.0",
     "prettier": "^2.3.2",
     "rimraf": "^3.0.2",
-    "typescript": "^5.0.2"
+    "typescript": "^5.0.2",
+    "discord-api-types": "^0.37.36"
   },
   "peerDependencies": {
-    "discord.js": "^14.13.0"
+    "discord.js": "^14.13.0",
+    "discord-api-types": "^0.37.36"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/Rodentman87/slashasaurus.git"
   },
   "dependencies": {
-    "@discordjs/rest": "^1.6.0",
-    "discord-api-types": "^0.37.36"
+    "@discordjs/rest": "^1.6.0"
   }
 }

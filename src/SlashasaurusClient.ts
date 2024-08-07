@@ -808,18 +808,18 @@ export class SlashasaurusClient {
 
   /**
    * Takes info about a command and calls the handler if it exists, otherwise, returns false to indicate that the command doesn't exist
-   * @param name The name of the command being called, must be in the format of `parent.subcommandgroup.subcommand`
+   * @param fullyQualifiedName The name of the command being called, must be in the format of `parent.subcommandgroup.subcommand`
    * @param interaction The interaction object
    */
   async handleCommand(
-    name: string,
+    fullyQualifiedName: string,
     interaction: GetConnectorType<'ChatInputCommandInteraction'>
   ) {
-    const command = this.commandMap.get(name);
+    const command = this.commandMap.get(fullyQualifiedName);
     if (!command) {
       return false;
     } else {
-      this.logger?.info(`Running command ${name}`);
+      this.logger?.info(`Running command ${fullyQualifiedName}`);
       const optionsObj = await command.validateAndTransformOptions(
         interaction,
         this.connector
