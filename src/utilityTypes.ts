@@ -1,6 +1,8 @@
 import {
   APIApplicationCommandAutocompleteInteraction,
   APIApplicationCommandInteraction,
+  APIAttachment,
+  APIChannel,
   APIChatInputApplicationCommandInteraction,
   APIContextMenuInteraction,
   APIInteraction,
@@ -14,6 +16,8 @@ import {
   APIMessageRoleSelectInteractionData,
   APIMessageUserSelectInteractionData,
   APIModalSubmitInteraction,
+  APIRole,
+  APIUser,
   APIUserApplicationCommandInteraction,
 } from 'discord-api-types/v10';
 import { APIInteractionDataResolvedChannel } from 'discord-api-types/v9';
@@ -21,7 +25,6 @@ import {
   ApplicationCommandOptionChoiceData,
   CategoryChannel,
   ChannelType,
-  CommandInteractionOptionResolver,
   ForumChannel,
   NewsChannel,
   StageChannel,
@@ -82,6 +85,7 @@ interface DefaultConnectorTypes {
   MentionableSelectMenuInteraction: APIMessageMentionableSelectInteractionData;
   Message: APIMessage;
   Interaction: APIInteraction;
+  OptionsMap: OptionsMap;
 }
 
 export interface ModifiableWebhook {
@@ -102,43 +106,18 @@ type HasChoices = {
   ];
 };
 
-type CommandInteractionOptionResolverReturn<
-  T extends keyof CommandInteractionOptionResolver
-  // eslint-disable-next-line @typescript-eslint/ban-types
-> = CommandInteractionOptionResolver[T] extends Function
-  ? // @ts-expect-error this works, it just doesn't narrow the type here
-    NonNullable<ReturnType<CommandInteractionOptionResolver[T]>>
-  : never;
+export type GetOptionsMap = GetConnectorType<'OptionsMap'>;
 
-export type OptionsMap = {
-  STRING: CommandInteractionOptionResolverReturn<'getString'>;
-  3: CommandInteractionOptionResolverReturn<'getString'>;
-  INTEGER: CommandInteractionOptionResolverReturn<'getInteger'>;
-  4: CommandInteractionOptionResolverReturn<'getInteger'>;
-  BOOLEAN: CommandInteractionOptionResolverReturn<'getBoolean'>;
-  5: CommandInteractionOptionResolverReturn<'getBoolean'>;
-  USER:
-    | CommandInteractionOptionResolverReturn<'getMember'>
-    | CommandInteractionOptionResolverReturn<'getUser'>;
-  6:
-    | CommandInteractionOptionResolverReturn<'getMember'>
-    | CommandInteractionOptionResolverReturn<'getUser'>;
-  CHANNEL: CommandInteractionOptionResolverReturn<'getChannel'>;
-  7: CommandInteractionOptionResolverReturn<'getChannel'>;
-  ROLE: CommandInteractionOptionResolverReturn<'getRole'>;
-  8: CommandInteractionOptionResolverReturn<'getRole'>;
-  MENTIONABLE:
-    | CommandInteractionOptionResolverReturn<'getMember'>
-    | CommandInteractionOptionResolverReturn<'getRole'>
-    | CommandInteractionOptionResolverReturn<'getUser'>;
-  9:
-    | CommandInteractionOptionResolverReturn<'getMember'>
-    | CommandInteractionOptionResolverReturn<'getRole'>
-    | CommandInteractionOptionResolverReturn<'getUser'>;
-  NUMBER: CommandInteractionOptionResolverReturn<'getInteger'>;
-  10: CommandInteractionOptionResolverReturn<'getInteger'>;
-  ATTACHMENT: CommandInteractionOptionResolverReturn<'getAttachment'>;
-  11: CommandInteractionOptionResolverReturn<'getAttachment'>;
+type OptionsMap = {
+  3: string;
+  4: number;
+  5: boolean;
+  6: APIUser;
+  7: APIChannel;
+  8: APIRole;
+  9: APIUser | APIRole;
+  10: number;
+  11: APIAttachment;
 };
 
 type ChannelsMap = {

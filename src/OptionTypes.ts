@@ -2,7 +2,7 @@ import { ApplicationCommandOptionType } from 'discord-api-types/v10';
 import type { LocalizationMap } from 'discord-api-types/v9';
 import { ChannelType, CommandInteraction } from 'discord.js';
 import { SlashasaurusClient } from './SlashasaurusClient';
-import { GetConnectorType, MaybePromise, OptionsMap } from './utilityTypes';
+import { GetConnectorType, GetOptionsMap, MaybePromise } from './utilityTypes';
 
 interface BaseApplicationCommandOptionsData<T> {
   /**
@@ -109,7 +109,9 @@ interface BooleanOptionsData
 }
 
 interface UserOptionsData
-  extends BaseApplicationCommandOptionsData<OptionsMap['USER']> {
+  extends BaseApplicationCommandOptionsData<
+    GetOptionsMap[ApplicationCommandOptionType.User]
+  > {
   readonly type: ApplicationCommandOptionType.User;
 }
 
@@ -125,18 +127,24 @@ type ValidChannelTypes =
   | ChannelType.GuildForum;
 
 interface ChannelOptionsData
-  extends BaseApplicationCommandOptionsData<OptionsMap['CHANNEL']> {
+  extends BaseApplicationCommandOptionsData<
+    GetOptionsMap[ApplicationCommandOptionType.Channel]
+  > {
   readonly type: ApplicationCommandOptionType.Channel;
   readonly channelTypes?: ReadonlyArray<ValidChannelTypes>;
 }
 
 interface RoleOptionsData
-  extends BaseApplicationCommandOptionsData<OptionsMap['ROLE']> {
+  extends BaseApplicationCommandOptionsData<
+    GetOptionsMap[ApplicationCommandOptionType.Role]
+  > {
   readonly type: ApplicationCommandOptionType.Role;
 }
 
 interface MentionableOptionsData
-  extends BaseApplicationCommandOptionsData<OptionsMap['MENTIONABLE']> {
+  extends BaseApplicationCommandOptionsData<
+    GetOptionsMap[ApplicationCommandOptionType.Mentionable]
+  > {
   readonly type: ApplicationCommandOptionType.Mentionable;
 }
 
@@ -172,7 +180,9 @@ interface NumberAutocompleteOptionsData
 }
 
 interface AttachmentOptionsData
-  extends BaseApplicationCommandOptionsData<OptionsMap['ATTACHMENT']> {
+  extends BaseApplicationCommandOptionsData<
+    GetOptionsMap[ApplicationCommandOptionType.Attachment]
+  > {
   readonly type: ApplicationCommandOptionType.Attachment;
 }
 
