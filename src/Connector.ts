@@ -54,6 +54,11 @@ export interface Connector {
     data: Partial<APIMessage>
   ) => Promise<{ messageId: string }>;
 
+  sendToChannel: (
+    channel_id: string,
+    data: Partial<APIMessage>
+  ) => Promise<MessageData>;
+
   /**
    * Either respond to the interaction with the update callback, or return false if the interaction has already been replied to
    * @param interaction the interaction to reply to

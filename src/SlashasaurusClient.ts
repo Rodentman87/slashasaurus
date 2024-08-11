@@ -1130,29 +1130,26 @@ export class SlashasaurusClient {
     page.pageDidSend?.();
   }
 
-  // async sendPageToChannel<P, S>(
-  //   page: Page<P, S>,
-  //   channel: T['TextBasedChannel']
-  // ) {
-  //   const messageOptions = await page.render();
-  //   const message = await channel.send({
-  //     ...messageOptions,
-  //     content: messageOptions.content ?? undefined,
-  //     components: messageOptions.components
-  //       ? pageComponentRowsToComponents(messageOptions.components, page)
-  //       : [],
-  //   });
-  //   page.message = message;
-  //   const state = await page.serializeState();
-  //   this.storePageState(
-  //     message.id,
-  //     page.constructor.pageId,
-  //     state,
-  //     messageToMessageData(page.message)
-  //   );
-  //   this.activePages.set(message.id, page);
-  //   page.pageDidSend?.();
-  // }
+  async sendPageToChannel<P, S>(page: Page<P, S>, channel_id: string) {
+    const messageOptions = await page.render();
+    const message = await this.connector.sendToChannel(channel_id, {
+      ...messageOptions,
+      content: messageOptions.content ?? undefined,
+      components: messageOptions.components
+        ? pageComponentRowsToComponents(messageOptions.components, page)
+        : [],
+    } as any);
+    page.message = message;
+    const state = await page.serializeState();
+    this.storePageState(
+      message.messageId,
+      page.constructor.pageId,
+      state,
+      JSON.stringify(page.message)
+    );
+    this.activePages.set(message.messageId, page);
+    page.pageDidSend?.();
+  }
 
   // async sendPageToForumChannel<P, S>(
   //   page: Page<P, S>,

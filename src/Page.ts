@@ -168,9 +168,9 @@ export abstract class Page<
     return;
   }
 
-  // sendToChannel(channel: TextBasedChannel) {
-  //   return this.client.sendPageToChannel(this, channel);
-  // }
+  sendToChannel(channel_id: string) {
+    return this.client.sendPageToChannel(this, channel_id);
+  }
 
   // sendAsForumPost(channel: ForumChannel, postTitle: string) {
   //   return this.client.sendPageToForumChannel(this, postTitle, channel);
