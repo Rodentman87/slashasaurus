@@ -978,7 +978,7 @@ export class SlashasaurusClient {
       );
     }
     page.latestInteraction = interaction;
-    page.handleId(customId.split(';')[1], interaction as any);
+    await page.handleId(customId.split(';')[1], interaction as any);
   }
 
   // TODO redo this with connector
@@ -1198,7 +1198,7 @@ export class SlashasaurusClient {
         });
       }
       if (!didUpdate) {
-        message.edit({
+        await message.edit({
           ...messageOptions,
           components: messageOptions.components
             ? pageComponentRowsToComponents(messageOptions.components, page)

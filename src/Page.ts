@@ -203,7 +203,7 @@ export abstract class Page<
    */
   abstract serializeState(): string;
 
-  handleId(
+  async handleId(
     id: string,
     interaction:
       | GetConnectorType<'ButtonInteraction'>
@@ -215,7 +215,7 @@ export abstract class Page<
   ) {
     const handler = this.handlers.get(id);
     if (handler) {
-      handler(interaction);
+      await handler(interaction);
     } else {
       throw new Error('Handler not registered for this component');
     }
