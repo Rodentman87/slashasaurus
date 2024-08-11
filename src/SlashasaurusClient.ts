@@ -1080,18 +1080,15 @@ export class SlashasaurusClient {
   // }
 
   // #region Modal handlers
-  // TODO need to fully redo this
-  // private async handleModalSubmit(
-  //   interaction: GetConnectorType<'ModalSubmitInteraction'>
-  // ) {
-  //   const modal = this.modalMap.get(interaction.customId);
-  //   if (!modal) return;
-  //   const values: Record<string, string> = {};
-  //   interaction.data.components.fields.forEach((field) => {
-  //     values[field.customId] = field.value;
-  //   });
-  //   modal.handler(interaction, values);
-  // }
+  public async handleModalSubmit(
+    customId: string,
+    fields: Record<string, string>,
+    interaction: GetConnectorType<'ModalSubmitInteraction'>
+  ) {
+    const modal = this.modalMap.get(customId);
+    if (!modal) return;
+    modal.handler(interaction, fields);
+  }
 
   // #region More Page stuff
   async replyToInteractionWithPage<P, S>(

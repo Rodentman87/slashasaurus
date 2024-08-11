@@ -4,9 +4,9 @@ import {
 	ComponentType,
 	ModalActionRowComponentBuilder,
 	ModalBuilder,
-	ModalSubmitInteraction,
-	TextInputStyle,
+	TextInputStyle
 } from 'discord.js';
+import { GetConnectorType } from './utilityTypes';
 
 type ExtractFromDelimiters<
   S extends string,
@@ -97,7 +97,7 @@ export class TemplateModal<
   public readonly customId: string;
   public readonly components: T;
   public readonly handler: (
-    interaction: ModalSubmitInteraction,
+    interaction: GetConnectorType<'ModalSubmitInteraction'>,
     values: ModalValuesType<T>
   ) => void;
 
@@ -106,7 +106,7 @@ export class TemplateModal<
     customId: string,
     components: T,
     handler: (
-      interaction: ModalSubmitInteraction,
+      interaction: GetConnectorType<'ModalSubmitInteraction'>,
       values: ModalValuesType<T>
     ) => void
   ) {
