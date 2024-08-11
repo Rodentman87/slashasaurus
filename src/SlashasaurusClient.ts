@@ -1225,6 +1225,7 @@ export class SlashasaurusClient {
     interaction:
       | GetConnectorType<'MessageComponentInteraction'>
       | GetConnectorType<'CommandInteraction'>
+      | GetConnectorType<'ModalSubmitInteraction'>
   ) {
     const cachedPage = this.activePages.get(messageId);
     if (!cachedPage) {
@@ -1269,6 +1270,7 @@ export class SlashasaurusClient {
     interaction:
       | GetConnectorType<'MessageComponentInteraction'>
       | GetConnectorType<'CommandInteraction'>
+      | GetConnectorType<'ModalSubmitInteraction'>
   ) {
     if ('channelId' in messageData) {
       return messageData;

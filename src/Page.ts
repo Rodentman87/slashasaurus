@@ -256,6 +256,7 @@ export type DeserializeStateFn<
   interaction?:
     | GetConnectorType<'MessageComponentInteraction'>
     | GetConnectorType<'CommandInteraction'>
+    | GetConnectorType<'ModalSubmitInteraction'>
 ) => MaybePromise<
   | {
       props: P;
