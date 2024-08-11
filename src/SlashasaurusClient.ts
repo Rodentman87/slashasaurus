@@ -101,6 +101,11 @@ export interface SlashasaurusClientOptions {
    * Whether or not to skip validating and transforming options for autocomplete handlers. Defaults to false.
    */
   skipValidationAndTransformationForAutocomplete?: boolean;
+
+  /**
+   * Test flag to disable page render when loading
+   */
+  TEST_disableRenderOnLoad?: boolean;
 }
 
 interface LogFn {
@@ -142,6 +147,10 @@ async function defaultPageGet(): Promise<{
   };
 }
 
+interface TestFlags {
+  disableRenderOnLoad: boolean;
+}
+
 export class SlashasaurusClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private commandMap = new Map<string, SlashCommand<any>>();
@@ -166,6 +175,8 @@ export class SlashasaurusClient {
   client: GetConnectorType<'Client'>;
   connector: Connector;
 
+  testFlags: TestFlags;
+
   constructor(connector: Connector, options: SlashasaurusClientOptions) {
     this.client = options.client;
     this.connector = connector;
@@ -178,6 +189,9 @@ export class SlashasaurusClient {
     this.getPageState = options.getPageState ?? defaultPageGet;
     this.skipAutocompleteValidationAndTransformation =
       options.skipValidationAndTransformationForAutocomplete ?? false;
+    this.testFlags = {
+      disableRenderOnLoad: options.TEST_disableRenderOnLoad ?? false,
+    };
   }
 
   /**
@@ -1256,9 +1270,11 @@ export class SlashasaurusClient {
       const newPage: Page = new pageConstructor(props);
       newPage.state = state;
       newPage.message = message;
-      const rendered = await newPage.render();
-      if (rendered.components)
-        pageComponentRowsToComponents(rendered.components, newPage);
+      if (!this.testFlags.disableRenderOnLoad) {
+        const rendered = await newPage.render();
+        if (rendered.components)
+          pageComponentRowsToComponents(rendered.components, newPage);
+      }
       this.activePages.set(messageId, newPage);
       return newPage;
     }

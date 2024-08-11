@@ -46,7 +46,7 @@ interface ComparableButton {
 
 interface ComparableStringSelect {
   type: ComponentType.StringSelect;
-  disabled: boolean;
+  disabled?: boolean;
   max_values: number;
   min_values: number;
   placeholder?: string;
@@ -59,7 +59,7 @@ interface ComparableAutoFilledSelect {
     | ComponentType.RoleSelect
     | ComponentType.ChannelSelect
     | ComponentType.MentionableSelect;
-  disabled: boolean;
+  disabled?: boolean;
   max_values: number;
   min_values: number;
   placeholder?: string;
@@ -268,7 +268,7 @@ export class PageSelect implements ExportableToDjsComponent {
   compareToComponent(component: ComparableComponent) {
     if (!(component.type === ComponentType.StringSelect)) return false;
     if (
-      this.disabled !== component.disabled ||
+      this.disabled !== (component.disabled ?? false) ||
       this.maxValues !== component.max_values ||
       this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
@@ -337,7 +337,7 @@ export class PageUserSelect implements ExportableToDjsComponent {
   compareToComponent(component: ComparableComponent) {
     if (!(component.type === ComponentType.UserSelect)) return false;
     if (
-      this.disabled !== component.disabled ||
+      this.disabled !== (component.disabled ?? false) ||
       this.maxValues !== component.max_values ||
       this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
@@ -387,7 +387,7 @@ export class PageRoleSelect implements ExportableToDjsComponent {
   compareToComponent(component: ComparableComponent) {
     if (!(component.type === ComponentType.StringSelect)) return false;
     if (
-      this.disabled !== component.disabled ||
+      this.disabled !== (component.disabled ?? false) ||
       this.maxValues !== component.max_values ||
       this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
@@ -445,7 +445,7 @@ export class PageChannelSelect implements ExportableToDjsComponent {
   compareToComponent(component: ComparableComponent) {
     if (!(component.type === ComponentType.ChannelSelect)) return false;
     if (
-      this.disabled !== component.disabled ||
+      this.disabled !== (component.disabled ?? false) ||
       this.maxValues !== component.max_values ||
       this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
@@ -499,7 +499,7 @@ export class PageMentionableSelect implements ExportableToDjsComponent {
   compareToComponent(component: ComparableComponent) {
     if (!(component.type === ComponentType.MentionableSelect)) return false;
     if (
-      this.disabled !== component.disabled ||
+      this.disabled !== (component.disabled ?? false) ||
       this.maxValues !== component.max_values ||
       this.minValues !== component.min_values ||
       this.placeholder !== component.placeholder
