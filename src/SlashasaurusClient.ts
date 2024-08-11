@@ -46,7 +46,6 @@ import { GetConnectorType, MaybePromise } from './utilityTypes';
 const JSFileRegex = /(?<!\.d)(\.js|\.ts)x?$/;
 
 export interface MessageData {
-  guildId: string;
   channelId: string;
   messageId: string;
 }
@@ -1274,7 +1273,7 @@ export class SlashasaurusClient {
       | GetConnectorType<'MessageComponentInteraction'>
       | GetConnectorType<'CommandInteraction'>
   ) {
-    if ('guildId' in messageData) {
+    if ('channelId' in messageData) {
       return messageData;
     } else {
       return new PageInteractionReplyMessage(
@@ -1283,6 +1282,5 @@ export class SlashasaurusClient {
         messageData.messageId
       );
     }
-    return;
   }
 }
