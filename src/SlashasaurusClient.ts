@@ -948,6 +948,8 @@ export class SlashasaurusClient {
       }
       this.activePages.set(messageId, page);
       const renderedPage = await page.render();
+      if (renderedPage.components)
+        pageComponentRowsToComponents(renderedPage.components, page);
       if (
         !compareMessages(
           this.connector.interactionToComparableMessage(interaction),
