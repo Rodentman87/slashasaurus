@@ -168,7 +168,7 @@ export abstract class Page<
     return;
   }
 
-  sendToChannel(channel_id: string) {
+  async sendToChannel(channel_id: string) {
     return this.client.sendPageToChannel(this, channel_id);
   }
 
@@ -430,7 +430,7 @@ function embedsAreEqual(a: APIEmbed, b: APIEmbed) {
   if (aFields.length !== bFields.length) return false;
   return aFields.every(
     (f, i) =>
-      f.inline === bFields[i].inline &&
+      (f.inline ?? false) === (bFields[i].inline ?? false) &&
       f.name === bFields[i].name?.trim() &&
       f.value === bFields[i].value?.trim()
   );
