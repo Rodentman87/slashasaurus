@@ -54,6 +54,13 @@ export interface Connector {
     data: Partial<APIMessage>
   ) => Promise<{ messageId: string }>;
 
+  followUpInteraction: (
+    interaction:
+      | GetConnectorType<'CommandInteraction'>
+      | GetConnectorType<'MessageComponentInteraction'>,
+    data: Partial<APIMessage>
+  ) => Promise<any>;
+
   sendToChannel: (
     channel_id: string,
     data: Partial<APIMessage>

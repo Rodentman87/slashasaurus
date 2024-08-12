@@ -103,6 +103,12 @@ export interface SlashasaurusClientOptions {
   skipValidationAndTransformationForAutocomplete?: boolean;
 
   /**
+   * The message you want to send when a user tries to interact with an out of date page.
+   * Defaults to "An older version of this page was stored, it's been updated. Click the button you want again."
+   */
+  outOfDatePageMessage?: string;
+
+  /**
    * Test flag to disable page render when loading
    */
   TEST_disableRenderOnLoad?: boolean;
@@ -175,6 +181,7 @@ export class SlashasaurusClient {
   client: GetConnectorType<'Client'>;
   connector: Connector;
 
+  outOfDatePageMessage: string;
   testFlags: TestFlags;
 
   constructor(connector: Connector, options: SlashasaurusClientOptions) {
@@ -192,6 +199,9 @@ export class SlashasaurusClient {
     this.testFlags = {
       disableRenderOnLoad: options.TEST_disableRenderOnLoad ?? false,
     };
+    this.outOfDatePageMessage =
+      options.outOfDatePageMessage ??
+      "An older version of this page was stored, it's been updated. Click the button you want again.";
   }
 
   /**
@@ -956,22 +966,19 @@ export class SlashasaurusClient {
           renderedPage
         )
       ) {
-        // await interaction.update({
-        //   content: null,
-        //   embeds: [],
-        //   ...renderedPage,
-        //   components: renderedPage.components
-        //     ? pageComponentRowsToComponents(renderedPage.components, page)
-        //     : [],
-        //   fetchReply: true,
-        //   flags: renderedPage.flags,
-        // });
-        // interaction.followUp({
-        //   content:
-        //     "An older version of this page was stored, it's been updated. Click the button you want again.",
-        //   ephemeral: true,
-        // });
-        console.log('Old page');
+        await this.connector.tryUpdate(interaction, {
+          content: null,
+          embeds: [],
+          ...renderedPage,
+          components: renderedPage.components
+            ? pageComponentRowsToComponents(renderedPage.components, page)
+            : [],
+          flags: renderedPage.flags,
+        });
+        this.connector.followUpInteraction(interaction, {
+          content: this.outOfDatePageMessage,
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
     }
