@@ -1,21 +1,21 @@
 import {
-  ButtonBuilder,
-  ChannelSelectMenuBuilder,
-  MentionableSelectMenuBuilder,
-  RoleSelectMenuBuilder,
-  SelectMenuBuilder,
-  UserSelectMenuBuilder,
+	ButtonBuilder,
+	ChannelSelectMenuBuilder,
+	MentionableSelectMenuBuilder,
+	RoleSelectMenuBuilder,
+	SelectMenuBuilder,
+	UserSelectMenuBuilder,
 } from '@discordjs/builders';
 import {
-  APIChannelSelectComponent,
-  APIMentionableSelectComponent,
-  APIMessageComponentEmoji,
-  APIRoleSelectComponent,
-  APISelectMenuOption,
-  APIUserSelectComponent,
-  ButtonStyle,
-  ChannelType,
-  ComponentType,
+	APIChannelSelectComponent,
+	APIMentionableSelectComponent,
+	APIMessageComponentEmoji,
+	APIRoleSelectComponent,
+	APISelectMenuOption,
+	APIUserSelectComponent,
+	ButtonStyle,
+	ChannelType,
+	ComponentType,
 } from 'discord-api-types/v10';
 import { GetConnectorType } from './utilityTypes';
 
@@ -279,8 +279,8 @@ export class PageSelect implements ExportableToDjsComponent {
       const other = component.options[index];
 
       if (
-        other.default !== (option.default ?? false) ||
-        other.description !== (option.description ?? null) ||
+        (other.default ?? false)!== (option.default ?? false) ||
+        (other.description ?? null) !== (option.description ?? null) ||
         other.label !== option.label ||
         other.value !== option.value
       )
