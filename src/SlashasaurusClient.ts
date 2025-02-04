@@ -31,7 +31,7 @@ import {
   ModalSubmitInteraction,
   RoleSelectMenuInteraction,
   SelectMenuInteraction,
-  TextBasedChannel,
+  SendableChannels,
   UserSelectMenuInteraction,
 } from 'discord.js';
 import { readdir, stat } from 'fs/promises';
@@ -84,12 +84,12 @@ const JSFileRegex = /(?<!\.d)(\.js|\.ts)x?$/;
 export declare interface SlashasaurusClient extends Client<true> {
   on<K extends keyof SlashasaurusClientEvents>(
     event: K,
-    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>
+    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>,
   ): this;
 
   once<K extends keyof SlashasaurusClientEvents>(
     event: K,
-    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>
+    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>,
   ): this;
 
   emit<K extends keyof SlashasaurusClientEvents>(
@@ -99,7 +99,7 @@ export declare interface SlashasaurusClient extends Client<true> {
 
   off<K extends keyof SlashasaurusClientEvents>(
     event: K,
-    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>
+    listener: (...args: SlashasaurusClientEvents[K]) => Awaitable<void>,
   ): this;
 
   removeAllListeners<K extends keyof SlashasaurusClientEvents>(event?: K): this;
@@ -120,7 +120,7 @@ type StorePageStateFn = (
   messageId: string,
   pageId: string,
   state: string,
-  messageData: string
+  messageData: string,
 ) => MaybePromise<void>;
 type GetPageStateFn = (messageId: string) => MaybePromise<{
   pageId: string;
@@ -179,7 +179,7 @@ interface PageMapStorage {
 
 async function defaultPageStore() {
   throw new Error(
-    `You must implement storePageState and getPageState in order to use pages`
+    `You must implement storePageState and getPageState in order to use pages`,
   );
 }
 
@@ -189,7 +189,7 @@ async function defaultPageGet(): Promise<{
   messageData: string;
 }> {
   throw new Error(
-    `You must implement storePageState and getPageState in order to use pages`
+    `You must implement storePageState and getPageState in order to use pages`,
   );
   return {
     pageId: 'error',
@@ -224,7 +224,7 @@ export class SlashasaurusClient extends Client<true> {
     if (options.logger) this.logger = options.logger;
     this.activePages = new PingableTimedCache(
       options.pageTtl ?? 30000,
-      (page) => page.pageWillLeaveCache?.()
+      (page) => page.pageWillLeaveCache?.(),
     );
     this.storePageState = options.storePageState ?? defaultPageStore;
     this.getPageState = options.getPageState ?? defaultPageGet;
@@ -240,17 +240,17 @@ export class SlashasaurusClient extends Client<true> {
    */
   async registerCommandsFrom(
     folderPath: string,
-    register: false
+    register: false,
   ): Promise<void>;
   async registerCommandsFrom(
     folderPath: string,
     register: true,
-    token: string
+    token: string,
   ): Promise<void>;
   async registerCommandsFrom(
     folderPath: string,
     register: boolean,
-    token?: string
+    token?: string,
   ): Promise<void> {
     this.logger?.info('Registering global commands');
     const topLevelFolders = await readdir(folderPath);
@@ -261,17 +261,17 @@ export class SlashasaurusClient extends Client<true> {
       switch (folderName) {
         case 'chat':
           commandData.push(
-            ...(await this.loadTopLevelCommands(join(folderPath, folderName)))
+            ...(await this.loadTopLevelCommands(join(folderPath, folderName))),
           );
           break;
         case 'message':
           commandData.push(
-            ...(await this.loadMessageCommands(join(folderPath, folderName)))
+            ...(await this.loadMessageCommands(join(folderPath, folderName))),
           );
           break;
         case 'user':
           commandData.push(
-            ...(await this.loadUserCommands(join(folderPath, folderName)))
+            ...(await this.loadUserCommands(join(folderPath, folderName))),
           );
           break;
       }
@@ -293,19 +293,19 @@ export class SlashasaurusClient extends Client<true> {
   async registerGuildCommandsFrom(
     folderPath: string,
     guildId: string,
-    register: false
+    register: false,
   ): Promise<void>;
   async registerGuildCommandsFrom(
     folderPath: string,
     guildId: string,
     register: true,
-    token: string
+    token: string,
   ): Promise<void>;
   async registerGuildCommandsFrom(
     folderPath: string,
     guildId: string,
     register: boolean,
-    token?: string
+    token?: string,
   ): Promise<void> {
     this.logger?.info(`Registering guild commands to ${guildId}`);
     const topLevelFolders = await readdir(folderPath);
@@ -316,17 +316,17 @@ export class SlashasaurusClient extends Client<true> {
       switch (folderName) {
         case 'chat':
           commandData.push(
-            ...(await this.loadTopLevelCommands(join(folderPath, folderName)))
+            ...(await this.loadTopLevelCommands(join(folderPath, folderName))),
           );
           break;
         case 'message':
           commandData.push(
-            ...(await this.loadMessageCommands(join(folderPath, folderName)))
+            ...(await this.loadMessageCommands(join(folderPath, folderName))),
           );
           break;
         case 'user':
           commandData.push(
-            ...(await this.loadUserCommands(join(folderPath, folderName)))
+            ...(await this.loadUserCommands(join(folderPath, folderName))),
           );
           break;
       }
@@ -340,7 +340,7 @@ export class SlashasaurusClient extends Client<true> {
         Routes.applicationGuildCommands(this.application.id, guildId),
         {
           body: commandData.map((c) => c.toJSON()),
-        }
+        },
       );
     }
 
@@ -358,7 +358,7 @@ export class SlashasaurusClient extends Client<true> {
   useContextMenuMiddleware(
     fn: Middleware<
       ContextMenuHandlerType<'MESSAGE'> | ContextMenuHandlerType<'USER'>
-    >
+    >,
   ) {
     this.contextMenuMiddleware.push(fn);
   }
@@ -369,7 +369,7 @@ export class SlashasaurusClient extends Client<true> {
     const commandData: ContextMenuCommandBuilder[] = [];
 
     this.logger?.debug(
-      `Loading user commands from folder, found ${topLevel.join(', ')}`
+      `Loading user commands from folder, found ${topLevel.join(', ')}`,
     );
 
     for (const folderOrFile of topLevel) {
@@ -378,7 +378,7 @@ export class SlashasaurusClient extends Client<true> {
         this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
         if (folderOrFile.match(JSFileRegex)) {
           this.logger?.debug(
-            `Checking if file ${folderOrFile} contains a command`
+            `Checking if file ${folderOrFile} contains a command`,
           );
           // This is a js file
           const data = await import(filePath);
@@ -386,8 +386,8 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected a default export in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           const command = data.default;
@@ -395,8 +395,8 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected the default export in file ${join(
                 path,
-                folderOrFile
-              )} to be a UserCommand`
+                folderOrFile,
+              )} to be a UserCommand`,
             );
           }
           this.userContextMenuMap.set(command.commandInfo.name, command);
@@ -407,15 +407,15 @@ export class SlashasaurusClient extends Client<true> {
               .setType(ApplicationCommandType.User)
               .setNameLocalizations(info.nameLocalizations ?? null)
               .setDefaultMemberPermissions(
-                info.defaultMemberPermissions ?? null
+                info.defaultMemberPermissions ?? null,
               )
-              .setDMPermission(info.dmPermission ?? null)
+              .setDMPermission(info.dmPermission ?? null),
           );
           this.logger?.debug(`Loaded user command ${command.commandInfo.name}`);
         }
       } else {
         throw new Error(
-          `Found folder at ${filePath}, context menu commands cannot have subcommands`
+          `Found folder at ${filePath}, context menu commands cannot have subcommands`,
         );
       }
     }
@@ -431,7 +431,7 @@ export class SlashasaurusClient extends Client<true> {
     const commandData: ContextMenuCommandBuilder[] = [];
 
     this.logger?.debug(
-      `Loading message commands from folder, found ${topLevel.join(', ')}`
+      `Loading message commands from folder, found ${topLevel.join(', ')}`,
     );
 
     for (const folderOrFile of topLevel) {
@@ -440,7 +440,7 @@ export class SlashasaurusClient extends Client<true> {
         this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
         if (folderOrFile.match(JSFileRegex)) {
           this.logger?.debug(
-            `Checking if file ${folderOrFile} contains a command`
+            `Checking if file ${folderOrFile} contains a command`,
           );
           // This is a js file
           const data = await import(filePath);
@@ -448,8 +448,8 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected a default export in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           const command = data.default;
@@ -457,8 +457,8 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected the default export in file ${join(
                 path,
-                folderOrFile
-              )} to be a MessageCommand`
+                folderOrFile,
+              )} to be a MessageCommand`,
             );
           }
           this.messageContextMenuMap.set(command.commandInfo.name, command);
@@ -469,17 +469,17 @@ export class SlashasaurusClient extends Client<true> {
               .setType(ApplicationCommandType.Message)
               .setNameLocalizations(info.nameLocalizations ?? null)
               .setDefaultMemberPermissions(
-                info.defaultMemberPermissions ?? null
+                info.defaultMemberPermissions ?? null,
               )
-              .setDMPermission(info.dmPermission ?? null)
+              .setDMPermission(info.dmPermission ?? null),
           );
           this.logger?.debug(
-            `Loaded message command ${command.commandInfo.name}`
+            `Loaded message command ${command.commandInfo.name}`,
           );
         }
       } else {
         throw new Error(
-          `Found folder at ${filePath}, context menu commands cannot have subcommands`
+          `Found folder at ${filePath}, context menu commands cannot have subcommands`,
         );
       }
     }
@@ -495,7 +495,7 @@ export class SlashasaurusClient extends Client<true> {
     const commandData: SlashCommandBuilder[] = [];
 
     this.logger?.debug(
-      `Loading chat commands from folder, found ${topLevel.join(', ')}`
+      `Loading chat commands from folder, found ${topLevel.join(', ')}`,
     );
 
     for (const folderOrFile of topLevel) {
@@ -504,7 +504,7 @@ export class SlashasaurusClient extends Client<true> {
         this.logger?.debug(`Checking if file ${folderOrFile} is a js(x) file`);
         if (folderOrFile.match(JSFileRegex)) {
           this.logger?.debug(
-            `Checking if file ${folderOrFile} contains a command`
+            `Checking if file ${folderOrFile} contains a command`,
           );
           // This is a js file
           const data = await import(filePath);
@@ -512,40 +512,39 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected a default export in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           this.logger?.debug(
-            `Checking if default export of ${folderOrFile} is a command`
+            `Checking if default export of ${folderOrFile} is a command`,
           );
           const command = data.default;
           if (!isChatCommand(command)) {
             throw new Error(
               `Expected the default export in file ${join(
                 path,
-                folderOrFile
-              )} to be a SlashCommand`
+                folderOrFile,
+              )} to be a SlashCommand`,
             );
           }
           this.logger?.debug(
-            `Adding command from ${folderOrFile} to command map`
+            `Adding command from ${folderOrFile} to command map`,
           );
           if (this.commandMap.has(command.commandInfo.name))
             throw new Error(
-              `Duplicate command name ${command.commandInfo.name}`
+              `Duplicate command name ${command.commandInfo.name}`,
             );
           this.commandMap.set(command.commandInfo.name, command);
           commandData.push(
-            // @ts-expect-error I will fix this later
-            populateBuilder(command.commandInfo, new SlashCommandBuilder())
+            populateBuilder(command.commandInfo, new SlashCommandBuilder()),
           );
           this.logger?.debug(`Loaded chat command ${command.commandInfo.name}`);
         }
       } else {
         // This has subcommands
         commandData.push(
-          await this.loadSubFolderLevelOne(filePath, folderOrFile)
+          await this.loadSubFolderLevelOne(filePath, folderOrFile),
         );
       }
     }
@@ -557,7 +556,7 @@ export class SlashasaurusClient extends Client<true> {
 
   private async loadSubFolderLevelOne(
     path: string,
-    name: string
+    name: string,
   ): Promise<SlashCommandBuilder> {
     const topLevel = await readdir(path);
 
@@ -567,7 +566,7 @@ export class SlashasaurusClient extends Client<true> {
     )[] = [];
 
     this.logger?.debug(
-      `Loading sub-commands from chat/${name}, found ${topLevel.join(', ')}`
+      `Loading sub-commands from chat/${name}, found ${topLevel.join(', ')}`,
     );
 
     let metaData: CommandGroupMetadata = {
@@ -588,7 +587,7 @@ export class SlashasaurusClient extends Client<true> {
           }
         } else if (folderOrFile.match(JSFileRegex)) {
           this.logger?.debug(
-            `Checking if file ${folderOrFile} contains a command`
+            `Checking if file ${folderOrFile} contains a command`,
           );
           // This is a js file
           const data = await import(filePath);
@@ -596,39 +595,37 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected a default export in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           this.logger?.debug(
-            `Checking if default export of ${folderOrFile} is a command`
+            `Checking if default export of ${folderOrFile} is a command`,
           );
           const command = data.default;
           if (!isChatCommand(command)) {
             throw new Error(
               `Expected the default export in file ${join(
                 path,
-                folderOrFile
-              )} to be a SlashCommand`
+                folderOrFile,
+              )} to be a SlashCommand`,
             );
           }
           this.logger?.debug(
-            `Adding command from ${folderOrFile} to command map`
+            `Adding command from ${folderOrFile} to command map`,
           );
           const mapName = name + '.' + command.commandInfo.name;
           if (this.commandMap.has(mapName))
             throw new Error(`Duplicate command name ${mapName}`);
           this.commandMap.set(mapName, command);
           commandData.push(
-            // @ts-expect-error I will fix this later
             populateBuilder(
               command.commandInfo,
-              // @ts-expect-error I will fix this later
-              new SlashCommandSubcommandBuilder()
-            )
+              new SlashCommandSubcommandBuilder(),
+            ),
           );
           this.logger?.debug(
-            `Loaded chat command ${name}.${command.commandInfo.name}`
+            `Loaded chat command ${name}.${command.commandInfo.name}`,
           );
         }
       } else {
@@ -637,8 +634,8 @@ export class SlashasaurusClient extends Client<true> {
           await this.loadSubFolderLevelTwo(
             join(path, folderOrFile),
             folderOrFile,
-            name
-          )
+            name,
+          ),
         );
       }
     }
@@ -667,7 +664,7 @@ export class SlashasaurusClient extends Client<true> {
   private async loadSubFolderLevelTwo(
     path: string,
     name: string,
-    parentName: string
+    parentName: string,
   ): Promise<SlashCommandSubcommandGroupBuilder> {
     const topLevel = await readdir(path);
 
@@ -675,8 +672,8 @@ export class SlashasaurusClient extends Client<true> {
 
     this.logger?.debug(
       `Loading sub-commands from chat/${parentName}/${name}, found ${topLevel.join(
-        ', '
-      )}`
+        ', ',
+      )}`,
     );
 
     let metaData: CommandGroupMetadata = {
@@ -695,31 +692,31 @@ export class SlashasaurusClient extends Client<true> {
           }
         } else if (folderOrFile.match(JSFileRegex)) {
           this.logger?.debug(
-            `Checking if file ${folderOrFile} contains a command`
+            `Checking if file ${folderOrFile} contains a command`,
           );
           const data = await import(join(path, folderOrFile));
           if (!data.default) {
             throw new Error(
               `Expected a default export in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           this.logger?.debug(
-            `Checking if default export of ${folderOrFile} is a command`
+            `Checking if default export of ${folderOrFile} is a command`,
           );
           const command = data.default;
           if (!isChatCommand(command)) {
             throw new Error(
               `Expected the default export in file ${join(
                 path,
-                folderOrFile
-              )} to be a SlashCommand`
+                folderOrFile,
+              )} to be a SlashCommand`,
             );
           }
           this.logger?.debug(
-            `Adding command from ${folderOrFile} to command map`
+            `Adding command from ${folderOrFile} to command map`,
           );
           const mapName =
             parentName + '.' + name + '.' + command.commandInfo.name;
@@ -727,22 +724,20 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(`Duplicate command name ${mapName}`);
           this.commandMap.set(mapName, command);
           commandData.push(
-            // @ts-expect-error I will fix this later
             populateBuilder(
               command.commandInfo,
-              // @ts-expect-error I will fix this later
-              new SlashCommandSubcommandBuilder()
-            )
+              new SlashCommandSubcommandBuilder(),
+            ),
           );
           this.logger?.debug(
-            `Loaded chat command ${parentName}.${name}.${command.commandInfo.name}`
+            `Loaded chat command ${parentName}.${name}.${command.commandInfo.name}`,
           );
         }
       }
     }
 
     this.logger?.debug(
-      `Finished loading sub-commands from chat/${parentName}/${name}`
+      `Finished loading sub-commands from chat/${parentName}/${name}`,
     );
 
     const builder = new SlashCommandSubcommandGroupBuilder()
@@ -771,8 +766,8 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected a default export in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           const page = data.default;
@@ -780,16 +775,16 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected the default export in file ${join(
                 path,
-                folderOrFile
-              )} to be a Page`
+                folderOrFile,
+              )} to be a Page`,
             );
           }
           if (page.pageId === DEFAULT_PAGE_ID) {
             throw new Error(
               `The page exported in ${join(
                 path,
-                folderOrFile
-              )} does not have a static pageId set.`
+                folderOrFile,
+              )} does not have a static pageId set.`,
             );
           }
           page._client = this;
@@ -798,8 +793,8 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected the page to have a static deserializeState function or an export named "deserializeState" in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           this.pageMap.set(page.pageId, {
@@ -809,7 +804,7 @@ export class SlashasaurusClient extends Client<true> {
         }
       } else {
         throw new Error(
-          `Found folder in pages directory ${join(path, folderOrFile)}`
+          `Found folder in pages directory ${join(path, folderOrFile)}`,
         );
       }
     }
@@ -828,8 +823,8 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected a default export in file ${join(
                 path,
-                folderOrFile
-              )} but didn't find one`
+                folderOrFile,
+              )} but didn't find one`,
             );
           }
           const modal = data.default;
@@ -837,15 +832,15 @@ export class SlashasaurusClient extends Client<true> {
             throw new Error(
               `Expected the default export in file ${join(
                 path,
-                folderOrFile
-              )} to be a TemplateModal`
+                folderOrFile,
+              )} to be a TemplateModal`,
             );
           }
           this.modalMap.set(modal.customId, modal);
         }
       } else {
         throw new Error(
-          `Found folder in modals directory ${join(path, folderOrFile)}`
+          `Found folder in modals directory ${join(path, folderOrFile)}`,
         );
       }
     }
@@ -943,7 +938,7 @@ export class SlashasaurusClient extends Client<true> {
         command.run,
         interaction,
         this,
-        optionsObj
+        optionsObj,
       );
     }
   }
@@ -967,7 +962,7 @@ export class SlashasaurusClient extends Client<true> {
       const optionsObj = await command.validateAndTransformOptions(
         interaction,
         true,
-        this.skipAutocompleteValidationAndTransformation
+        this.skipAutocompleteValidationAndTransformation,
       );
       const focused = interaction.options.getFocused(true);
       const autocompleteFn = command.autocompleteMap.get(focused.name);
@@ -981,10 +976,11 @@ export class SlashasaurusClient extends Client<true> {
           focused.name,
           focused.value,
           this,
-          optionsObj
+          optionsObj,
         );
       } else {
-        // @ts-expect-error This will complain because the autocomplete is typed here with []
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore Tripped the endless type resolution again
         await this.autocompleteMiddleware.execute(
           command.autocomplete,
           interaction,
@@ -992,7 +988,7 @@ export class SlashasaurusClient extends Client<true> {
           focused.name,
           focused.value,
           this,
-          optionsObj
+          optionsObj,
         );
       }
     }
@@ -1006,7 +1002,7 @@ export class SlashasaurusClient extends Client<true> {
         : this.userContextMenuMap.get(commandName);
     if (!command) {
       this.logger?.error(
-        `Unregistered context command ${commandName} being run`
+        `Unregistered context command ${commandName} being run`,
       );
       throw new Error(`Unregistered command ${commandName} was run`);
     } else {
@@ -1049,7 +1045,7 @@ export class SlashasaurusClient extends Client<true> {
       // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
-        message.id
+        message.id,
       );
       // Store the updated page
       const state = await page.serializeState();
@@ -1057,7 +1053,7 @@ export class SlashasaurusClient extends Client<true> {
         page.message.id,
         page.constructor.pageId,
         state,
-        messageToMessageData(page.message)
+        messageToMessageData(page.message),
       );
     }
     page.latestInteraction = interaction;
@@ -1070,7 +1066,7 @@ export class SlashasaurusClient extends Client<true> {
       | UserSelectMenuInteraction
       | RoleSelectMenuInteraction
       | ChannelSelectMenuInteraction
-      | MentionableSelectMenuInteraction
+      | MentionableSelectMenuInteraction,
   ) {
     let page = this.activePages.get(interaction.message.id);
     if (!page) {
@@ -1102,7 +1098,7 @@ export class SlashasaurusClient extends Client<true> {
       // If this page was an interaction reply (meaning it was ephemeral), update the interaction to extend the lifetime of the token
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
-        message.id
+        message.id,
       );
       // Store the updated page
       const state = await page.serializeState();
@@ -1110,7 +1106,7 @@ export class SlashasaurusClient extends Client<true> {
         page.message.id,
         page.constructor.pageId,
         state,
-        messageToMessageData(page.message)
+        messageToMessageData(page.message),
       );
     }
     page.latestInteraction = interaction;
@@ -1130,7 +1126,7 @@ export class SlashasaurusClient extends Client<true> {
   async replyToInteractionWithPage<P, S>(
     page: Page<P, S>,
     interaction: MessageComponentInteraction | CommandInteraction,
-    ephemeral: boolean
+    ephemeral: boolean,
   ) {
     const messageOptions = await page.render();
     if (ephemeral) {
@@ -1144,20 +1140,20 @@ export class SlashasaurusClient extends Client<true> {
         ephemeral: true,
         fetchReply: true,
         flags: messageOptions.flags as unknown as BitFieldResolvable<
-          'SuppressEmbeds' | 'Ephemeral',
+          'SuppressEmbeds' | 'Ephemeral' | 'SuppressNotifications',
           number
         >,
       });
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
-        message.id
+        message.id,
       );
       const state = await page.serializeState();
       this.storePageState(
         message.id,
         page.constructor.pageId,
         state,
-        messageToMessageData(page.message)
+        messageToMessageData(page.message),
       );
       this.activePages.set(message.id, page);
     } else {
@@ -1169,27 +1165,27 @@ export class SlashasaurusClient extends Client<true> {
           : [],
         fetchReply: true,
         flags: messageOptions.flags as unknown as BitFieldResolvable<
-          'SuppressEmbeds' | 'Ephemeral',
+          'SuppressEmbeds' | 'Ephemeral' | 'SuppressNotifications',
           number
         >,
       });
       page.message = new PageInteractionReplyMessage(
         interaction.webhook,
-        message.id
+        message.id,
       );
       const state = await page.serializeState();
       this.storePageState(
         message.id,
         page.constructor.pageId,
         state,
-        messageToMessageData(page.message)
+        messageToMessageData(page.message),
       );
       this.activePages.set(message.id, page);
     }
     page.pageDidSend?.();
   }
 
-  async sendPageToChannel<P, S>(page: Page<P, S>, channel: TextBasedChannel) {
+  async sendPageToChannel<P, S>(page: Page<P, S>, channel: SendableChannels) {
     const messageOptions = await page.render();
     const message = await channel.send({
       ...messageOptions,
@@ -1204,7 +1200,7 @@ export class SlashasaurusClient extends Client<true> {
       message.id,
       page.constructor.pageId,
       state,
-      messageToMessageData(page.message)
+      messageToMessageData(page.message),
     );
     this.activePages.set(message.id, page);
     page.pageDidSend?.();
@@ -1213,7 +1209,7 @@ export class SlashasaurusClient extends Client<true> {
   async sendPageToForumChannel<P, S>(
     page: Page<P, S>,
     postTitle: string,
-    channel: ForumChannel
+    channel: ForumChannel,
   ) {
     const messageOptions = await page.render();
     const thread = await channel.threads.create({
@@ -1232,7 +1228,7 @@ export class SlashasaurusClient extends Client<true> {
       thread.lastMessage!.id,
       page.constructor.pageId,
       state,
-      messageToMessageData(page.message)
+      messageToMessageData(page.message),
     );
     this.activePages.set(thread.lastMessage!.id, page);
   }
@@ -1270,13 +1266,13 @@ export class SlashasaurusClient extends Client<true> {
       page.message instanceof Message ? page.message.id : page.message.id,
       page.constructor.pageId,
       state,
-      messageToMessageData(page.message)
+      messageToMessageData(page.message),
     );
   }
 
   async getPageFromMessage(
     messageOrId: Message | string,
-    interaction: MessageComponentInteraction | CommandInteraction
+    interaction: MessageComponentInteraction | CommandInteraction,
   ) {
     const id = typeof messageOrId === 'string' ? messageOrId : messageOrId.id;
     const cachedPage = this.activePages.get(id);
@@ -1288,13 +1284,13 @@ export class SlashasaurusClient extends Client<true> {
           : await this.getMessage(JSON.parse(messageData));
       if (!message)
         throw new Error(
-          `Failed to load Page message. ${JSON.stringify(messageData)}`
+          `Failed to load Page message. ${JSON.stringify(messageData)}`,
         );
       const { page: pageConstructor, deserialize } =
         this.pageMap.get(pageId) ?? {};
       if (!pageConstructor || !deserialize)
         throw new Error(
-          `A component tried to load a page type that isn't registered, ${pageId}`
+          `A component tried to load a page type that isn't registered, ${pageId}`,
         );
       const deserialized = await deserialize(stateString, interaction);
       if (!('props' in deserialized)) {
@@ -1330,19 +1326,19 @@ export class SlashasaurusClient extends Client<true> {
           const channel = await guild.channels.fetch(messageData.channelId);
           if (!(channel instanceof BaseGuildTextChannel))
             throw new Error(
-              `Channel for saved Page was not a text channel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
+              `Channel for saved Page was not a text channel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`,
             );
           return channel.messages.fetch(messageData.messageId);
         } else {
           const channel = await this.channels.fetch(messageData.channelId);
           if (!(channel instanceof DMChannel))
             throw new Error(
-              `Channel for saved Page was not a DMChannel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
+              `Channel for saved Page was not a DMChannel, this likely means there's something wrong with the storage. ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`,
             );
         }
       } catch (e) {
         throw new Error(
-          `Tried to fetch a message the bot can no longer see: ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`
+          `Tried to fetch a message the bot can no longer see: ${messageData.guildId}/${messageData.channelId}/${messageData.messageId}`,
         );
       }
     } else {
@@ -1350,9 +1346,9 @@ export class SlashasaurusClient extends Client<true> {
         new InteractionWebhook(
           this,
           this.application.id,
-          messageData.webhookToken
+          messageData.webhookToken,
         ),
-        messageData.messageId
+        messageData.messageId,
       );
     }
     return;
@@ -1360,7 +1356,7 @@ export class SlashasaurusClient extends Client<true> {
 }
 
 function messageToMessageData(
-  message: Message | PageInteractionReplyMessage
+  message: Message | PageInteractionReplyMessage,
 ): string {
   if (message instanceof Message) {
     return JSON.stringify({

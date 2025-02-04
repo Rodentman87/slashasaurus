@@ -16,7 +16,7 @@ import {
   MessagePayload,
   RoleSelectMenuInteraction,
   SelectMenuInteraction,
-  TextBasedChannel,
+  SendableChannels,
   UserSelectMenuInteraction,
   WebhookMessageEditOptions,
 } from 'discord.js';
@@ -59,7 +59,10 @@ export function isPage(thing: any): thing is Page['constructor'] {
 export const DEFAULT_PAGE_ID = 'DEFAULT_PAGE_ID';
 
 export class PageInteractionReplyMessage {
-  constructor(public webhook: InteractionWebhook, public id: string) {}
+  constructor(
+    public webhook: InteractionWebhook,
+    public id: string,
+  ) {}
 
   async edit(options: string | MessagePayload | WebhookMessageEditOptions) {
     await this.webhook.editMessage(this.id, options);
@@ -85,7 +88,7 @@ export interface Page<P = Record<string, never>, S = Record<string, never>> {
 }
 export abstract class Page<
   P = Record<string, never>,
-  S = Record<string, never>
+  S = Record<string, never>,
 > {
   state: Readonly<S>;
   readonly props: Readonly<P>;
@@ -100,7 +103,7 @@ export abstract class Page<
   constructor(props: P) {
     if (!this.constructor._client)
       throw new Error(
-        "This page hasn't been registered with your client, make sure that it's being registered correctly"
+        "This page hasn't been registered with your client, make sure that it's being registered correctly",
       );
     this.props = props;
     this.message = null;
@@ -117,7 +120,7 @@ export abstract class Page<
   async setState<K extends keyof S>(
     nextState:
       | ((prevState: Readonly<S>, props: Readonly<P>) => Pick<S, K> | S | null)
-      | (Pick<S, K> | S | null)
+      | (Pick<S, K> | S | null),
   ): Promise<void> {
     if (!this.message)
       throw new Error('You cannot update the state of a Page before it sends');
@@ -133,7 +136,7 @@ export abstract class Page<
     return;
   }
 
-  sendToChannel(channel: TextBasedChannel) {
+  sendToChannel(channel: SendableChannels) {
     return this.client.sendPageToChannel(this, channel);
   }
 
@@ -143,7 +146,7 @@ export abstract class Page<
 
   sendAsReply(
     interaction: MessageComponentInteraction | CommandInteraction,
-    ephemeral = false
+    ephemeral = false,
   ) {
     return this.client.replyToInteractionWithPage(this, interaction, ephemeral);
   }
@@ -174,7 +177,7 @@ export abstract class Page<
       | UserSelectMenuInteraction
       | RoleSelectMenuInteraction
       | ChannelSelectMenuInteraction
-      | MentionableSelectMenuInteraction
+      | MentionableSelectMenuInteraction,
   ) {
     const handler = this.handlers.get(id);
     if (handler) {
@@ -213,10 +216,10 @@ export abstract class Page<
  */
 export type DeserializeStateFn<
   P = Record<string, never>,
-  S = Record<string, never>
+  S = Record<string, never>,
 > = (
   serializedState: string,
-  interaction?: MessageComponentInteraction | CommandInteraction
+  interaction?: MessageComponentInteraction | CommandInteraction,
 ) => MaybePromise<
   | {
       props: P;
@@ -227,7 +230,7 @@ export type DeserializeStateFn<
 
 export function pageComponentRowsToComponents<P, S>(
   rows: PageComponentRows,
-  page: Page<P, S>
+  page: Page<P, S>,
 ): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
   page.clearHandlers();
   const pageId = page.constructor.pageId;
@@ -238,13 +241,13 @@ export function pageComponentRowsToComponents<P, S>(
       if (row instanceof PageActionRow) {
         row.children.forEach((component) => {
           actionRow.addComponents(
-            componentToDjsComponent(component, page, pageId)
+            componentToDjsComponent(component, page, pageId),
           );
         });
       } else if (Array.isArray(row)) {
         row.forEach((component) => {
           actionRow.addComponents(
-            componentToDjsComponent(component, page, pageId)
+            componentToDjsComponent(component, page, pageId),
           );
         });
       } else {
@@ -254,18 +257,18 @@ export function pageComponentRowsToComponents<P, S>(
     })
     .filter<ActionRowBuilder<MessageActionRowComponentBuilder>>(
       (e): e is ActionRowBuilder<MessageActionRowComponentBuilder> =>
-        e instanceof ActionRowBuilder
+        e instanceof ActionRowBuilder,
     );
 }
 
 function componentToDjsComponent<P, S>(
   component: PageComponentArray[number],
   page: Page<P, S>,
-  pageId: string
+  pageId: string,
 ) {
   if ('handler' in component) {
     return component.toDjsComponent(
-      `~${pageId};${page.registerHandler(component.handler)}`
+      `~${pageId};${page.registerHandler(component.handler)}`,
     );
   } else {
     return component.toDjsComponent();
@@ -274,12 +277,12 @@ function componentToDjsComponent<P, S>(
 
 export function compareMessages(
   a: MessageComponentInteraction['message'],
-  b: RenderedPage
+  b: RenderedPage,
 ) {
   if (a.content !== (b.content ?? '')) return false;
 
   const bComponents = b.components?.filter(
-    (c) => Array.isArray(c) || c instanceof PageActionRow
+    (c) => Array.isArray(c) || c instanceof PageActionRow,
   );
 
   // Check Components
@@ -385,6 +388,6 @@ function embedsAreEqual(a: Embed, b: APIEmbed) {
     (f, i) =>
       f.inline === bFields[i].inline &&
       f.name === bFields[i].name?.trim() &&
-      f.value === bFields[i].value?.trim()
+      f.value === bFields[i].value?.trim(),
   );
 }

@@ -2,19 +2,19 @@ import { APIInteractionDataResolvedChannel } from 'discord-api-types/v9';
 import {
   ApplicationCommandOptionChoiceData,
   CategoryChannel,
+  ChannelType,
   CommandInteractionOptionResolver,
+  ForumChannel,
   NewsChannel,
   StageChannel,
   TextChannel,
   ThreadChannel,
   VoiceChannel,
-  ChannelType,
-  ForumChannel,
 } from 'discord.js';
-import { OptionsDataArray, ApplicationCommandOptionData } from './OptionTypes';
+import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
 
 export type ExtractArrayType<T> = ((a: T) => never) extends (
-  a: Array<infer H>
+  a: Array<infer H>,
 ) => never
   ? H
   : never;
@@ -32,7 +32,7 @@ type TailOfReadonly<T extends Readonly<unknown[]>> = ((
   : never;
 
 type MapChoicesToValues<
-  T extends readonly ApplicationCommandOptionChoiceData[]
+  T extends readonly ApplicationCommandOptionChoiceData[],
 > = {
   [K in keyof T]: T[K] extends ApplicationCommandOptionChoiceData
     ? T[K]['value']
@@ -42,12 +42,12 @@ type MapChoicesToValues<
 type HasChoices = {
   choices: readonly [
     ApplicationCommandOptionChoiceData,
-    ...ApplicationCommandOptionChoiceData[]
+    ...ApplicationCommandOptionChoiceData[],
   ];
 };
 
 type CommandInteractionOptionResolverReturn<
-  T extends keyof CommandInteractionOptionResolver
+  T extends keyof CommandInteractionOptionResolver,
   // eslint-disable-next-line @typescript-eslint/ban-types
 > = CommandInteractionOptionResolver[T] extends Function
   ? // @ts-expect-error this works, it just doesn't narrow the type here
@@ -98,6 +98,7 @@ type ChannelsMap = {
   13: StageChannel;
   14: never; // Directory
   15: ForumChannel; // Forum
+  16: never; // Guild Media Channel - deprecated
 };
 
 type MapChannelTypesToChannels<T extends ReadonlyArray<ChannelType>> = {
@@ -110,14 +111,14 @@ type OptionToValue<T extends ApplicationCommandOptionData> = T extends {
 }
   ? Awaited<ReturnType<T['transformer']>>
   : T extends HasChoices
-  ? MapChoicesToValues<T['choices']>
-  : T extends {
-      channelTypes: ReadonlyArray<ChannelType>;
-    }
-  ?
-      | MapChannelTypesToChannels<T['channelTypes']>
-      | APIInteractionDataResolvedChannel
-  : OptionsMap[T['type']];
+    ? MapChoicesToValues<T['choices']>
+    : T extends {
+          channelTypes: ReadonlyArray<ChannelType>;
+        }
+      ?
+          | MapChannelTypesToChannels<T['channelTypes']>
+          | APIInteractionDataResolvedChannel
+      : OptionsMap[T['type']];
 
 export type CommandOptionsObject<T extends OptionsDataArray> = {
   [Key in T[number]['name']]: Extract<
@@ -139,11 +140,12 @@ type MapOptionToAutocompleteName<T extends ApplicationCommandOptionData> =
     : never;
 
 export type MapOptionsToAutocompleteNames<
-  T extends readonly ApplicationCommandOptionData[]
-> = LengthOfReadonly<T> extends 0
-  ? never
-  : LengthOfReadonly<T> extends 1
-  ? MapOptionToAutocompleteName<HeadOfReadonly<T>>
-  :
-      | MapOptionToAutocompleteName<HeadOfReadonly<T>>
-      | MapOptionsToAutocompleteNames<TailOfReadonly<T>>;
+  T extends readonly ApplicationCommandOptionData[],
+> =
+  LengthOfReadonly<T> extends 0
+    ? never
+    : LengthOfReadonly<T> extends 1
+      ? MapOptionToAutocompleteName<HeadOfReadonly<T>>
+      :
+          | MapOptionToAutocompleteName<HeadOfReadonly<T>>
+          | MapOptionsToAutocompleteNames<TailOfReadonly<T>>;

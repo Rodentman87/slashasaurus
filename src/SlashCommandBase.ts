@@ -1,32 +1,34 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
-  AutocompleteInteraction,
-  ChatInputCommandInteraction,
-  InteractionType,
-  SlashCommandAttachmentOption,
-  SlashCommandBooleanOption,
-  SlashCommandBuilder,
-  SlashCommandChannelOption,
-  SlashCommandIntegerOption,
-  SlashCommandMentionableOption,
-  SlashCommandNumberOption,
-  SlashCommandRoleOption,
-  SlashCommandStringOption,
-  SlashCommandSubcommandBuilder,
-  SlashCommandUserOption,
-} from 'discord.js';
-import {
-  LocalizationMap,
-  ApplicationCommandOptionType,
+	ApplicationCommandOptionType,
+	LocalizationMap,
 } from 'discord-api-types/v10';
+import {
+	ApplicationIntegrationType,
+	AutocompleteInteraction,
+	ChatInputCommandInteraction,
+	InteractionContextType,
+	InteractionType,
+	SlashCommandAttachmentOption,
+	SlashCommandBooleanOption,
+	SlashCommandBuilder,
+	SlashCommandChannelOption,
+	SlashCommandIntegerOption,
+	SlashCommandMentionableOption,
+	SlashCommandNumberOption,
+	SlashCommandRoleOption,
+	SlashCommandStringOption,
+	SlashCommandSubcommandBuilder,
+	SlashCommandUserOption,
+} from 'discord.js';
+import { ValidationError } from './CustomErrors';
+import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
 import { SlashasaurusClient } from './SlashasaurusClient';
 import {
-  MapOptionsToAutocompleteNames,
-  CommandOptionsObject,
-  MaybePromise,
+	CommandOptionsObject,
+	MapOptionsToAutocompleteNames,
+	MaybePromise,
 } from './utilityTypes';
-import { ApplicationCommandOptionData, OptionsDataArray } from './OptionTypes';
-import { ValidationError } from './CustomErrors';
 
 type ChatCommandOptions<T extends OptionsDataArray> = {
   name: string;
@@ -35,7 +37,12 @@ type ChatCommandOptions<T extends OptionsDataArray> = {
   descriptionLocalizations?: LocalizationMap;
   options: T;
   defaultMemberPermissions?: string | number | bigint;
+	/**
+	 * @deprecated use contexts instead
+	 */
   dmPermission?: boolean;
+	contexts?: InteractionContextType[];
+	integrationTypes?: ApplicationIntegrationType[];
 };
 
 export type CommandGroupMetadata = {
@@ -43,7 +50,12 @@ export type CommandGroupMetadata = {
   description: string;
   descriptionLocalizations?: LocalizationMap;
   defaultMemberPermissions?: string | number | bigint;
+	/**
+	 * @deprecated use contexts instead
+	 */
   dmPermission?: boolean;
+	contexts?: InteractionContextType[];
+	integrationTypes?: ApplicationIntegrationType[];
 };
 
 export function isCommandGroupMetadata(arg: any): arg is CommandGroupMetadata {
@@ -327,7 +339,12 @@ export function populateBuilder<
   if (builder instanceof SlashCommandBuilder) {
     builder
       .setDefaultMemberPermissions(info.defaultMemberPermissions)
-      .setDMPermission(info.dmPermission);
+		if(info.integrationTypes != null || info.contexts != null) {
+			builder.setContexts(info.contexts ?? []);
+			builder.setIntegrationTypes(info.integrationTypes ?? []);
+		} else if(info.dmPermission != null) {
+			builder.setDMPermission(info.dmPermission);
+		}
   }
   info.options.forEach((option: ApplicationCommandOptionData) => {
     let string,
@@ -417,7 +434,6 @@ export function populateBuilder<
           .setDescriptionLocalizations(option.descriptionLocalizations ?? null)
           .setRequired(option.required ?? false);
         if (option.channelTypes) {
-          // @ts-expect-error I need to PR this to discord.js to allow forums as a channel type
           channel.addChannelTypes(...option.channelTypes);
         }
         builder.addChannelOption(channel);
